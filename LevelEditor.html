@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>LevelEditor v1.11 (MultiPack)</title>
+  <style>
+    * { box-sizing: border-box; touch-action: none; }
+    html, body { margin: 0; padding: 0; height: 100%; background:#000; color:#e6e6e6; font-family: Arial, sans-serif; overflow:hidden; }
+
+    #stage { position: fixed; inset: 0; background:#000; }
+    #canvasHolder {
+      position: absolute; inset: 0;
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden; background:#000;
+    }
+    canvas#c { width: 720px; height: 1280px; display:block; background:#000; image-rendering:auto; }
+
+    .statusTop{
+      position: fixed; left: 12px; top: 12px; z-index: 40;
+      background: rgba(10,10,10,0.55);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 900; font-size: 13px;
+      backdrop-filter: blur(6px);
+      max-width: 72vw; overflow:hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Closed HUD: set (top) -> level (mid) -> [...] (bottom) */
+    .dockMini{
+      position: fixed; right: 12px; bottom: 12px; z-index: 60;
+      background: rgba(10,10,10,0.78);
+      border: 2px solid rgba(255,255,255,0.60);
+      border-radius: 16px;
+      padding: 10px;
+      backdrop-filter: blur(8px);
+      display:flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      min-width: 0;
+    }
+    .infoStack{ display:flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+
+    .pill{
+      display:inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.35);
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: .2px;
+      white-space: nowrap;
+      max-width: 190px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+    }
+
+    button, select {
+      background: rgba(20,20,20,0.95);
+      color:#e6e6e6;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 900;
+      font-size: 13px;
+      letter-spacing: .3px;
+    }
+    button:active { transform: translateY(1px); }
+    button.primary { border-color: rgba(255, 80, 60, 0.7); }
+    button:disabled, select:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    #btnTools{
+      min-width: 52px;
+      min-height: 46px;
+      font-size: 18px;
+      line-height: 1;
+      padding: 10px 14px;
+      width: 56px;
+    }
+
+    .toolboxOverlay{
+      position: fixed;
+      right: 12px;
+      bottom: 80px;
+      z-index: 70;
+      width: min(520px, 96vw);
+      max-height: min(80vh, 920px);
+      overflow:auto;
+      background: rgba(10,10,10,0.90);
+      border: 2px solid rgba(255,255,255,0.62);
+      border-radius: 18px;
+      padding: 12px;
+      backdrop-filter: blur(10px);
+      display:none;
+    }
+    .toolboxOverlay.open { display:block; }
+
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+    .row + .row{ margin-top: 10px; }
+
+    .titleRow{ display:flex; align-items:center; justify-content: space-between; gap: 10px; }
+    .titleRow h2{ margin:0; font-family:"Arial Black", Arial, sans-serif; font-size:20px; letter-spacing:.6px; }
+
+    .hr{ height:1px; background: rgba(255,255,255,0.12); margin: 10px 0; }
+    .tip{ font-size: 13px; opacity:.90; line-height: 1.35; }
+
+    textarea{
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      background: rgba(0,0,0,0.55);
+      color:#e6e6e6;
+      border:1px solid rgba(255,255,255,0.22);
+      border-radius: 14px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+    }
+    code{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+    .backdrop{ position: fixed; inset: 0; z-index: 65; display:none; background: rgba(0,0,0,0.0); }
+    .backdrop.open { display:block; }
+
+    @media (min-width: 900px) {
+      .toolboxOverlay{
+        width: min(980px, 92vw);
+        max-height: min(84vh, 1100px);
+        padding: 22px;
+        border-radius: 22px;
+      }
+      .titleRow h2{ font-size: 36px; letter-spacing: .8px; }
+
+      .toolboxOverlay button,
+      .toolboxOverlay select{
+        font-size: 28px;
+        padding: 18px 22px;
+        border-radius: 18px;
+        border-width: 2px;
+      }
+
+      #btnClose{
+        min-width: 74px;
+        min-height: 64px;
+        font-size: 34px;
+        line-height: 1;
+        padding: 14px 18px;
+      }
+
+      .row{ gap: 16px; }
+      .row + .row{ margin-top: 16px; }
+      .hr{ margin: 16px 0; }
+      .tip{ font-size: 24px; line-height: 1.45; }
+      textarea{
+        min-height: 260px;
+        font-size: 22px;
+        padding: 18px;
+        border-radius: 18px;
+        border-width: 2px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="stage">
+    <div id="canvasHolder">
+      <canvas id="c" width="720" height="1280"></canvas>
+    </div>
+  </div>
+
+  <div class="statusTop" id="statusTop">Ready</div>
+
+  <!-- totem pole: file -> level -> [...] -->
+  <div class="dockMini">
+    <div class="infoStack">
+      <span class="pill" id="fileInfo">Lv_Gs</span>
+      <span class="pill" id="levelInfo">G2</span>
+    </div>
+    <button id="btnTools" class="primary">⋯</button>
+  </div>
+
+  <div id="backdrop" class="backdrop"></div>
+
+  <div id="toolbox" class="toolboxOverlay">
+    <div class="titleRow">
+      <h2>Toolbox</h2>
+      <button id="btnClose">✕</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Pack row -->
+    <div class="row">
+      <span class="tip" style="min-width:54px;">Pack</span>
+      <select id="packSelect">
+        <option value="gs" selected>Gs (Lv_Gs.json)</option>
+        <option value="n8">n8 (Lv_n8.json)</option>
+        <option value="ai">ai (Lv_ai.json)</option>
+      </select>
+      <button id="btnPackAutoLoad" class="primary">Auto-Load</button>
+    </div>
+
+    <!-- Level row -->
+    <div class="row">
+      <span class="tip" style="min-width:54px;">Level</span>
+      <select id="levelSelect"></select>
+      <button id="btnAddLevel">+ Level</button>
+      <button id="btnDelLevel">− Level</button>
+    </div>
+
+    <!-- File ops row (as requested: same row) -->
+    <div class="row">
+      <button id="btnClear">Clear</button>
+      <input id="fileInput" type="file" accept=".json" style="display:none;" />
+      <button id="btnLoadFile">Load File</button>
+      <button id="btnSave" class="primary">Download JSON</button>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="tip">
+      <b>Save:</b> use <b>Download JSON</b> to update your <code id="packFileHint">Lv_Gs.json</code> file on disk.
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Copy/paste tools -->
+    <div class="row">
+      <button id="btnCopyLevel" class="primary">Copy Level</button>
+      <button id="btnPasteLevel">Paste Level Here</button>
+      <button id="btnCopyGrid">Copy Grid JSON</button>
+      <button id="btnPasteGrid">Paste Grid JSON</button>
+    </div>
+
+    <textarea id="gridOut" spellcheck="false" placeholder="Grid / Level JSON appears here after Copy…"></textarea>
+
+    <div class="tip">
+      Grid is <b>36×9</b>. Values: <code>-1</code> empty, <code>0..4</code> = B1..B5.
+    </div>
+  </div>
+
+  <script>
+    const EDITOR_VERSION = "v1.11";
+
+    const PACKS = {
+      gs: { id: "gs", label: "Lv_Gs", filename: "Lv_Gs.json", prefix: "G" },
+      n8: { id: "n8", label: "Lv_n8", filename: "Lv_n8.json", prefix: "Lv" },
+      ai: { id: "ai", label: "Lv_ai", filename: "Lv_ai.json", prefix: "Lv" }
+    };
+
+    // --- sprite sheet (match game crop) ---
+    const SPRITE_SHEET = new Image();
+    let spriteReady = false;
+    SPRITE_SHEET.onload = () => { spriteReady = true; drawAll(); };
+    SPRITE_SHEET.src = "BrickShiftoutsSprites.png";
+
+    const BRICK_SX0 = 740;        // animFrame 0
+    const BRICK_SY0 = 160;        // base y
+    const BRICK_SW  = 90;
+    const BRICK_SH  = 24;
+    const BRICK_TYPE_STEP = 28;   // per type row
+
+    const DESIGN_W = 720;
+    const DESIGN_H = 1280;
+
+    const DEFAULT_PACK = {
+      version: 1,
+      meta: { rows: 36, cols: 9, brickW: 90, brickH: 24, yStart: 75 },
+      levels: {}
+    };
+
+    const TYPES = [
+      { key: "B1", val: 0, color: "rgb(255, 0, 0)" },
+      { key: "B2", val: 1, color: "rgb(255, 165, 0)" },
+      { key: "B3", val: 2, color: "rgb(255, 255, 0)" },
+      { key: "B4", val: 3, color: "rgb(0, 255, 0)" },
+      { key: "B5", val: 4, color: "rgb(0, 255, 255)" }
+    ];
+
+    const KEY_LABELS = {
+      0: "B1 | Str 1 | Normal brick",
+      1: "B2 | Str 1 | Normal+",
+      2: "B3 | Str 2 | Double tough",
+      3: "B4 | Str 1 | Ghost brick",
+      4: "B5 | Str 1 | Indestructible",
+    };
+
+    function labelForVal(v) {
+      if (v === -1) return "EMPTY";
+      const t = TYPES.find(x => x.val === v);
+      return t ? t.key : "?";
+    }
+
+    // --- editor state ---
+    let currentPackId = "gs";
+    let currentPackCfg = PACKS[currentPackId];
+    const packCache = { gs: null, n8: null, ai: null };
+
+    let pack = null;
+    let currentLevelKey = "G2";
+    let grid = null;
+
+    let selectedVal = 0; // -1 or 0..4
+    let isDown = false;
+    let lastCell = null;
+
+    // key UI hitboxes
+    let keySwatches = [];
+    let keyBlockRect = null;
+
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    canvas.width = DESIGN_W;
+    canvas.height = DESIGN_H;
+
+    function meta() {
+      return (pack && pack.meta) ? pack.meta : DEFAULT_PACK.meta;
+    }
+
+    function setStatus(msg) {
+      document.getElementById("statusTop").textContent = msg;
+    }
+
+    function setHUD() {
+      document.getElementById("fileInfo").textContent = currentPackCfg.label;
+      document.getElementById("levelInfo").textContent = currentLevelKey;
+      const hint = document.getElementById("packFileHint");
+      if (hint) hint.textContent = currentPackCfg.filename;
+    }
+
+    function computeViewFit() {
+      const holder = document.getElementById("canvasHolder");
+      const rect = holder.getBoundingClientRect();
+      const scale = Math.min(rect.width / DESIGN_W, rect.height / DESIGN_H);
+      const scaledW = DESIGN_W * scale;
+      const scaledH = DESIGN_H * scale;
+      const offX = Math.floor((rect.width - scaledW) * 0.5);
+      const offY = Math.floor((rect.height - scaledH) * 0.5);
+
+      canvas.style.width = `${scaledW}px`;
+      canvas.style.height = `${scaledH}px`;
+      canvas.style.transform = `translate(${offX}px, ${offY}px)`;
+      canvas.style.transformOrigin = "top left";
+    }
+    window.addEventListener("resize", computeViewFit);
+
+    function ensurePackShape(p) {
+      const out = p && typeof p === "object" ? p : {};
+      if (typeof out.version !== "number") out.version = DEFAULT_PACK.version;
+      if (!out.meta) out.meta = structuredClone(DEFAULT_PACK.meta);
+
+      const m = out.meta;
+      for (const k of ["rows", "cols", "brickW", "brickH", "yStart"]) {
+        if (typeof m[k] !== "number") m[k] = DEFAULT_PACK.meta[k];
+      }
+      if (!out.levels || typeof out.levels !== "object") out.levels = {};
+      return out;
+    }
+
+    function blankGrid() {
+      const m = meta();
+      const out = [];
+      for (let r = 0; r < m.rows; r++) {
+        const row = [];
+        for (let c = 0; c < m.cols; c++) row.push(-1);
+        out.push(row);
+      }
+      return out;
+    }
+
+    function ensureLevelExists(levelKey) {
+      pack.levels[levelKey] = pack.levels[levelKey] || { name: levelKey, grid: blankGrid() };
+
+      const m = meta();
+      let g = pack.levels[levelKey].grid;
+      if (!Array.isArray(g) || g.length !== m.rows) {
+        pack.levels[levelKey].grid = blankGrid();
+        return;
+      }
+      for (let r = 0; r < m.rows; r++) {
+        if (!Array.isArray(g[r]) || g[r].length !== m.cols) {
+          pack.levels[levelKey].grid = blankGrid();
+          return;
+        }
+      }
+    }
+
+    function isGsPack() { return currentPackId === "gs"; }
+    function isCampaignPack() { return currentPackId === "n8" || currentPackId === "ai"; }
+
+    function ensureGsFiveLevels() {
+      if (!pack) return;
+      for (let i = 1; i <= 5; i++) ensureLevelExists("G" + i);
+      if (!/^G[1-5]$/.test(currentLevelKey)) currentLevelKey = "G2";
+    }
+
+    function keyNum(k) {
+      const m = (k + "").match(/(\d+)/);
+      return m ? parseInt(m[1], 10) : Number.POSITIVE_INFINITY;
+    }
+
+    function getOrderedLevelKeys(p) {
+      const levelsObj = p?.levels;
+      if (!levelsObj || typeof levelsObj !== "object") return [];
+      const keys = Object.keys(levelsObj);
+      return keys.sort((a, b) => {
+        const na = keyNum(a), nb = keyNum(b);
+        if (na !== nb) return na - nb;
+        return (a + "").localeCompare(b + "");
+      });
+    }
+
+    function defaultLevelKeyForPack() {
+      if (currentPackId === "gs") return "G2";
+      return "Lv1";
+    }
+
+    function updatePackUiLocks() {
+      const addBtn = document.getElementById("btnAddLevel");
+      const delBtn = document.getElementById("btnDelLevel");
+      if (!addBtn || !delBtn) return;
+
+      if (isGsPack()) {
+        addBtn.disabled = true;
+        delBtn.disabled = true;
+      } else {
+        addBtn.disabled = false;
+        delBtn.disabled = false;
+      }
+    }
+
+    function repopulateLevelSelect() {
+      const sel = document.getElementById("levelSelect");
+      if (!sel) return;
+
+      sel.innerHTML = "";
+      if (!pack) pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+
+      if (isGsPack()) ensureGsFiveLevels();
+      const keys = getOrderedLevelKeys(pack);
+      if (keys.length === 0) ensureLevelExists(defaultLevelKeyForPack());
+
+      const finalKeys = getOrderedLevelKeys(pack);
+      for (const k of finalKeys) {
+        if (isGsPack() && !/^G[1-5]$/.test(k)) continue;
+        const opt = document.createElement("option");
+        opt.value = k;
+        opt.textContent = k;
+        sel.appendChild(opt);
+      }
+
+      const opts = [...sel.options].map(o => o.value);
+      if (opts.includes(currentLevelKey)) sel.value = currentLevelKey;
+      else if (opts.length) {
+        currentLevelKey = opts[0];
+        sel.value = currentLevelKey;
+      }
+
+      setHUD();
+      updatePackUiLocks();
+    }
+
+    function persistPackToCache() {
+      if (currentPackId && pack) packCache[currentPackId] = pack;
+    }
+
+    async function switchPack(newPackId) {
+      if (!PACKS[newPackId]) return;
+
+      persistPackToCache();
+
+      currentPackId = newPackId;
+      currentPackCfg = PACKS[currentPackId];
+
+      pack = packCache[currentPackId];
+      if (!pack) {
+        pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+        packCache[currentPackId] = pack;
+      }
+
+      if (isGsPack()) ensureGsFiveLevels();
+
+      repopulateLevelSelect();
+
+      const keys = getOrderedLevelKeys(pack);
+      const wanted = currentLevelKey;
+      if (wanted && pack.levels[wanted]) loadLevel(wanted);
+      else if (keys.length) {
+        loadLevel(isGsPack() ? "G2" : keys[0]);
+      } else {
+        loadLevel(defaultLevelKeyForPack());
+      }
+
+      setStatus("Switched to " + currentPackCfg.label);
+    }
+
+    function nextLevelKeyForPack() {
+      if (isGsPack()) return "G6"; // never used; gs locked
+      const prefix = currentPackCfg.prefix; // "Lv"
+      const keys = getOrderedLevelKeys(pack);
+      let maxN = 0;
+      for (const k of keys) {
+        if (!k.startsWith(prefix)) continue;
+        const n = keyNum(k);
+        if (Number.isFinite(n)) maxN = Math.max(maxN, n);
+      }
+      return prefix + String(maxN + 1);
+    }
+
+    function addLevel() {
+      if (isGsPack()) { setStatus("Gs pack locked (G1–G5)"); return; }
+      if (!pack) pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+      const k = nextLevelKeyForPack();
+      ensureLevelExists(k);
+      repopulateLevelSelect();
+      loadLevel(k);
+      setStatus("Added " + k);
+    }
+
+    function collapseRenumberLvPack(deletedKey) {
+      if (!isCampaignPack()) return;
+
+      const prefix = currentPackCfg.prefix; // "Lv"
+      const delNum = keyNum(deletedKey);
+      if (!Number.isFinite(delNum)) return;
+
+      const keys = Object.keys(pack.levels || {});
+      const lvKeys = keys
+        .filter(k => k.startsWith(prefix) && Number.isFinite(keyNum(k)))
+        .sort((a, b) => keyNum(a) - keyNum(b));
+
+      const remaining = lvKeys.filter(k => k !== deletedKey);
+
+      const newLevels = {};
+      for (const k of keys) {
+        const isNumericLv = (k.startsWith(prefix) && Number.isFinite(keyNum(k)));
+        if (!isNumericLv) newLevels[k] = pack.levels[k];
+      }
+
+      for (let i = 0; i < remaining.length; i++) {
+        const oldKey = remaining[i];
+        const newKey = prefix + String(i + 1);
+        const lvl = pack.levels[oldKey];
+        if (lvl && typeof lvl === "object") lvl.name = newKey;
+        newLevels[newKey] = lvl;
+      }
+
+      pack.levels = newLevels;
+
+      const newCount = remaining.length;
+      const targetNum = Math.min(delNum, Math.max(1, newCount));
+      const targetKey = prefix + String(targetNum);
+
+      repopulateLevelSelect();
+      loadLevel(targetKey);
+      setStatus("Deleted " + deletedKey + " (collapsed)");
+    }
+
+    function deleteCurrentLevel() {
+      if (isGsPack()) { setStatus("Gs pack locked (G1–G5)"); return; }
+      if (!pack) return;
+
+      const keys = getOrderedLevelKeys(pack);
+      if (keys.length <= 1) { setStatus("Can't delete the last level"); return; }
+
+      const ok = confirm("Delete level " + currentLevelKey + " ?");
+      if (!ok) return;
+
+      delete pack.levels[currentLevelKey];
+
+      if (isCampaignPack()) {
+        collapseRenumberLvPack(currentLevelKey);
+        return;
+      }
+
+      repopulateLevelSelect();
+      const nextKeys = getOrderedLevelKeys(pack);
+      const fallback = nextKeys[0] || defaultLevelKeyForPack();
+      loadLevel(fallback);
+      setStatus("Deleted. Now on " + fallback);
+    }
+
+    function deepClone(obj) {
+      try { return structuredClone(obj); } catch { return JSON.parse(JSON.stringify(obj)); }
+    }
+
+    function tryParseJson(txt) {
+      try { return JSON.parse(txt); } catch { return null; }
+    }
+
+    function isValidGrid(g) {
+      const m = meta();
+      if (!Array.isArray(g) || g.length !== m.rows) return false;
+      for (let r = 0; r < m.rows; r++) {
+        if (!Array.isArray(g[r]) || g[r].length !== m.cols) return false;
+      }
+      return true;
+    }
+
+    let levelClipboard = null;
+
+    function getLevelFromClipboardOrTextarea() {
+      if (levelClipboard && levelClipboard.grid) return deepClone(levelClipboard);
+      const txt = (document.getElementById("gridOut")?.value || "").trim();
+      if (!txt) return null;
+
+      const parsed = tryParseJson(txt);
+      if (!parsed) return null;
+
+      if (Array.isArray(parsed)) {
+        if (!isValidGrid(parsed)) return null;
+        return { name: "CLIP", grid: parsed };
+      }
+      if (parsed && typeof parsed === "object") {
+        const g = parsed.grid;
+        if (!isValidGrid(g)) return null;
+        return { name: parsed.name || "CLIP", grid: g };
+      }
+      return null;
+    }
+
+    async function copyTextToClipboard(txt) {
+      try { await navigator.clipboard.writeText(txt); return true; }
+      catch { return false; }
+    }
+
+    async function copyLevel() {
+      if (!pack) return;
+      ensureLevelExists(currentLevelKey);
+      const lvl = pack.levels[currentLevelKey];
+      levelClipboard = deepClone({ name: lvl.name || currentLevelKey, grid: lvl.grid });
+      const txt = JSON.stringify(levelClipboard, null, 2);
+      document.getElementById("gridOut").value = txt;
+
+      const ok = await copyTextToClipboard(txt);
+      setStatus(ok ? "Level copied" : "Level in textbox (clipboard blocked)");
+    }
+
+    function pasteLevelHere() {
+      if (!pack) return;
+      const lvl = getLevelFromClipboardOrTextarea();
+      if (!lvl) { setStatus("Paste failed: no valid level JSON"); return; }
+
+      ensureLevelExists(currentLevelKey);
+      pack.levels[currentLevelKey].name = currentLevelKey;
+      pack.levels[currentLevelKey].grid = deepClone(lvl.grid);
+
+      grid = pack.levels[currentLevelKey].grid;
+      drawAll();
+      setStatus("Pasted into " + currentLevelKey);
+    }
+
+    function pasteGridHere() {
+      const txt = (document.getElementById("gridOut")?.value || "").trim();
+      const parsed = tryParseJson(txt);
+      if (!parsed || !Array.isArray(parsed) || !isValidGrid(parsed)) {
+        setStatus("Paste failed: grid must be 36×9 JSON array");
+        return;
+      }
+      ensureLevelExists(currentLevelKey);
+      pack.levels[currentLevelKey].grid = deepClone(parsed);
+      grid = pack.levels[currentLevelKey].grid;
+      drawAll();
+      setStatus("Grid pasted into " + currentLevelKey);
+    }
+
+    function loadLevel(levelKey) {
+      currentLevelKey = levelKey;
+      if (!pack) pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+      if (isGsPack()) ensureGsFiveLevels();
+
+      ensureLevelExists(levelKey);
+      grid = pack.levels[levelKey].grid;
+
+      const sel = document.getElementById("levelSelect");
+      if (sel) {
+        if (![...sel.options].some(o => o.value === levelKey)) repopulateLevelSelect();
+        sel.value = levelKey;
+      }
+
+      setHUD();
+      setStatus("Loaded " + levelKey);
+      drawAll();
+    }
+
+    async function autoLoadPack() {
+      const fn = currentPackCfg.filename;
+      setStatus("Loading " + fn + "…");
+      try {
+        const res = await fetch(fn, { cache: "no-store" });
+        if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
+        const data = await res.json();
+        pack = ensurePackShape(data);
+        packCache[currentPackId] = pack;
+
+        if (isGsPack()) ensureGsFiveLevels();
+        repopulateLevelSelect();
+
+        const wanted = currentLevelKey;
+        if (wanted && pack.levels[wanted]) loadLevel(wanted);
+        else {
+          if (isGsPack()) loadLevel("G2");
+          else loadLevel(getOrderedLevelKeys(pack)[0] || defaultLevelKeyForPack());
+        }
+
+        setStatus("Loaded " + fn);
+      } catch (e) {
+        pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+        packCache[currentPackId] = pack;
+
+        if (isGsPack()) ensureGsFiveLevels();
+        repopulateLevelSelect();
+        loadLevel(defaultLevelKeyForPack());
+
+        setStatus("Auto-load failed. Use Load File.");
+        console.warn(e);
+      }
+    }
+
+    function readPackFromFile(file) {
+      setStatus("Reading file…");
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(String(reader.result || "{}"));
+          pack = ensurePackShape(data);
+          packCache[currentPackId] = pack;
+
+          if (isGsPack()) ensureGsFiveLevels();
+          repopulateLevelSelect();
+
+          const wanted = currentLevelKey;
+          if (wanted && pack.levels[wanted]) loadLevel(wanted);
+          else {
+            if (isGsPack()) loadLevel("G2");
+            else loadLevel(getOrderedLevelKeys(pack)[0] || defaultLevelKeyForPack());
+          }
+
+          setStatus("Loaded from file");
+        } catch (e) {
+          setStatus("Invalid JSON file");
+          console.warn(e);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadPack() {
+      if (!pack) return;
+
+      // Keep Gs output strictly G1..G5
+      let outLevels = pack.levels;
+      if (isGsPack()) {
+        outLevels = {};
+        for (let i = 1; i <= 5; i++) {
+          const k = "G" + i;
+          ensureLevelExists(k);
+          outLevels[k] = pack.levels[k];
+          if (outLevels[k] && typeof outLevels[k] === "object") outLevels[k].name = k;
+        }
+      }
+
+      const out = { version: pack.version, meta: pack.meta, levels: outLevels };
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = currentPackCfg.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatus("Downloaded " + currentPackCfg.filename);
+    }
+
+    function clearLevel() {
+      const m = meta();
+      if (!grid) return;
+      for (let r = 0; r < m.rows; r++) for (let c = 0; c < m.cols; c++) grid[r][c] = -1;
+      setStatus("Cleared " + currentLevelKey);
+      drawAll();
+    }
+
+    // --- painting math ---
+    function brickRect(r, c) {
+      const m = meta();
+      const xOff = (r % 2 !== 0) ? -Math.floor(m.brickW / 2) : 0;
+      const x = xOff + (c * m.brickW);
+      const y = m.yStart + (r * m.brickH);
+      return { x, y, w: m.brickW, h: m.brickH };
+    }
+
+    function pickCell(px, py) {
+      const m = meta();
+      const r = Math.floor((py - m.yStart) / m.brickH);
+      if (r < 0 || r >= m.rows) return null;
+
+      const xOff = (r % 2 !== 0) ? -Math.floor(m.brickW / 2) : 0;
+      const c = Math.floor((px - xOff) / m.brickW);
+      if (c < 0 || c >= m.cols) return null;
+
+      const rect = brickRect(r, c);
+      if (px < rect.x || px > rect.x + rect.w || py < rect.y || py > rect.y + rect.h) return null;
+      return { r, c };
+    }
+
+    function setCell(r, c, value) {
+      if (!grid) return;
+      if (r < 0 || r >= grid.length) return;
+      if (c < 0 || c >= grid[r].length) return;
+      grid[r][c] = value;
+    }
+
+    function applyAtCell(cell) {
+      if (!cell) return;
+      const { r, c } = cell;
+      if (grid[r][c] !== selectedVal) {
+        setCell(r, c, selectedVal);
+        drawAll();
+      }
+    }
+
+    function colorForVal(v) {
+      if (v === -1) return "#000";
+      const t = TYPES.find(x => x.val === v);
+      return t ? t.color : "#000";
+    }
+
+    // --- rendering ---
+    function drawAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const m = meta();
+
+      // bricks (editor display is still flat-color blocks; key uses real sprites)
+      for (let r = 0; r < m.rows; r++) {
+        for (let c = 0; c < m.cols; c++) {
+          const v = grid ? grid[r][c] : -1;
+          if (v === -1) continue;
+          const rect = brickRect(r, c);
+          ctx.fillStyle = colorForVal(v);
+          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        }
+      }
+
+      // grid outline
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      for (let r = 0; r < m.rows; r++) {
+        for (let c = 0; c < m.cols; c++) {
+          const rect = brickRect(r, c);
+          ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        }
+      }
+
+      drawKeyBlock();
+    }
+
+    function drawKeyBlock() {
+      keySwatches = [];
+
+      const pad = 16;
+      const boxX = pad;
+      const boxY = canvas.height - 224;
+      const boxW = 560;
+      const boxH = 194;
+
+      keyBlockRect = { x: boxX - 10, y: boxY - 10, w: boxW + 20, h: boxH + 20 };
+
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(keyBlockRect.x, keyBlockRect.y, keyBlockRect.w, keyBlockRect.h);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(keyBlockRect.x, keyBlockRect.y, keyBlockRect.w, keyBlockRect.h);
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "900 22px Arial Black, Arial, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText("BRICK COLOR KEY:", boxX, boxY + 22);
+
+      ctx.font = "900 16px Arial Black, Arial, sans-serif";
+
+      // icon(sprite) + swatch + text
+      const iconW = 56, iconH = 15;
+      const swW = 18, swH = 18;
+
+      const iconX = boxX;
+      const swX = iconX + iconW + 10;
+      const textX = swX + swW + 12;
+
+      let y = boxY + 54;
+      const step = 26;
+
+      function drawEmptyIcon(x, topY) {
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(x, topY, iconW, iconH);
+        ctx.strokeStyle = "rgba(255,255,255,0.75)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, topY, iconW, iconH);
+      }
+
+      function drawBrickIcon(typeVal, x, topY) {
+        if (!spriteReady) { drawEmptyIcon(x, topY); return; }
+        const sx = BRICK_SX0;
+        const sy = BRICK_SY0 + (typeVal * BRICK_TYPE_STEP);
+        ctx.drawImage(SPRITE_SHEET, sx, sy, BRICK_SW, BRICK_SH, x, topY, iconW, iconH);
+      }
+
+      function addKeyHit(val, iconTopY) {
+        const top = Math.min(iconTopY, y - swH + 6);
+        const h = Math.max(iconH, swH);
+        keySwatches.push({ x: iconX, y: top, w: (swX + swW) - iconX, h, val });
+        if (selectedVal === val) {
+          ctx.strokeStyle = "rgba(255,255,255,0.95)";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(iconX - 2, top - 2, ((swX + swW) - iconX) + 4, h + 4);
+        }
+      }
+
+      // EMPTY
+      let iconTopY = y - iconH + 6;
+      drawEmptyIcon(iconX, iconTopY);
+
+      ctx.fillStyle = "#000";
+      ctx.fillRect(swX, y - swH + 6, swW, swH);
+      ctx.strokeStyle = "rgba(255,255,255,0.90)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(swX, y - swH + 6, swW, swH);
+
+      ctx.fillStyle = "#fff";
+      ctx.fillText("EMPTY | No brick", textX, y);
+
+      addKeyHit(-1, iconTopY);
+      y += step;
+
+      // B1..B5
+      for (const t of TYPES) {
+        iconTopY = y - iconH + 6;
+        drawBrickIcon(t.val, iconX, iconTopY);
+
+        ctx.fillStyle = t.color;
+        ctx.fillRect(swX, y - swH + 6, swW, swH);
+        ctx.strokeStyle = "rgba(255,255,255,0.90)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(swX, y - swH + 6, swW, swH);
+
+        ctx.fillStyle = "#fff";
+        ctx.fillText(KEY_LABELS[t.val], textX, y);
+
+        addKeyHit(t.val, iconTopY);
+        y += step;
+      }
+    }
+
+    function designPointFromEvent(ev) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (ev.clientX - rect.left) * (DESIGN_W / rect.width);
+      const y = (ev.clientY - rect.top) * (DESIGN_H / rect.height);
+      return { x, y };
+    }
+
+    function hitTestSwatches(px, py) {
+      if (keyBlockRect) {
+        if (px < keyBlockRect.x || px > keyBlockRect.x + keyBlockRect.w) return null;
+        if (py < keyBlockRect.y || py > keyBlockRect.y + keyBlockRect.h) return null;
+      }
+      for (const s of keySwatches) {
+        if (px >= s.x && px <= s.x + s.w && py >= s.y && py <= s.y + s.h) return s;
+      }
+      return null;
+    }
+
+    // --- input ---
+    canvas.addEventListener("pointerdown", (ev) => {
+      ev.preventDefault();
+      isDown = true;
+
+      const p = designPointFromEvent(ev);
+
+      const sw = hitTestSwatches(p.x, p.y);
+      if (sw) {
+        selectedVal = sw.val;
+        setStatus("Selected " + labelForVal(selectedVal));
+        drawAll();
+        isDown = false;
+        return;
+      }
+
+      const cell = pickCell(p.x, p.y);
+      lastCell = cell;
+      applyAtCell(cell);
+    });
+
+    canvas.addEventListener("pointermove", (ev) => {
+      if (!isDown) return;
+      ev.preventDefault();
+
+      const p = designPointFromEvent(ev);
+      if (hitTestSwatches(p.x, p.y)) return;
+
+      const cell = pickCell(p.x, p.y);
+      if (!cell) return;
+      if (lastCell && cell.r === lastCell.r && cell.c === lastCell.c) return;
+      lastCell = cell;
+      applyAtCell(cell);
+    });
+
+    window.addEventListener("pointerup", () => { isDown = false; lastCell = null; });
+    window.addEventListener("pointercancel", () => { isDown = false; lastCell = null; });
+
+    // --- toolbox open/close ---
+    const toolbox = document.getElementById("toolbox");
+    const backdrop = document.getElementById("backdrop");
+    function openTools() { toolbox.classList.add("open"); backdrop.classList.add("open"); }
+    function closeTools() { toolbox.classList.remove("open"); backdrop.classList.remove("open"); }
+    function toggleTools() { toolbox.classList.contains("open") ? closeTools() : openTools(); }
+
+    document.getElementById("btnTools").addEventListener("click", toggleTools);
+    document.getElementById("btnClose").addEventListener("click", closeTools);
+    backdrop.addEventListener("pointerdown", closeTools);
+
+    // --- UI wiring ---
+    document.getElementById("packSelect").addEventListener("change", async (ev) => {
+      await switchPack(ev.target.value);
+    });
+    document.getElementById("btnPackAutoLoad").addEventListener("click", autoLoadPack);
+
+    document.getElementById("btnAddLevel").addEventListener("click", addLevel);
+    document.getElementById("btnDelLevel").addEventListener("click", deleteCurrentLevel);
+
+    document.getElementById("btnCopyLevel").addEventListener("click", copyLevel);
+    document.getElementById("btnPasteLevel").addEventListener("click", pasteLevelHere);
+    document.getElementById("btnPasteGrid").addEventListener("click", pasteGridHere);
+
+    document.getElementById("btnLoadFile").addEventListener("click", () => document.getElementById("fileInput").click());
+    document.getElementById("fileInput").addEventListener("change", (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if (file) readPackFromFile(file);
+      ev.target.value = "";
+    });
+
+    document.getElementById("btnSave").addEventListener("click", downloadPack);
+    document.getElementById("levelSelect").addEventListener("change", (ev) => {
+      if (!pack) pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+      loadLevel(ev.target.value);
+    });
+    document.getElementById("btnClear").addEventListener("click", clearLevel);
+
+    document.getElementById("btnCopyGrid").addEventListener("click", async () => {
+      if (!grid) return;
+      const txt = JSON.stringify(grid);
+      document.getElementById("gridOut").value = txt;
+      try {
+        await navigator.clipboard.writeText(txt);
+        setStatus("Grid copied");
+      } catch {
+        setStatus("Grid in textbox (clipboard blocked)");
+      }
+    });
+
+    function boot() {
+      const pSel = document.getElementById("packSelect");
+      if (pSel) pSel.value = currentPackId;
+
+      pack = ensurePackShape(structuredClone(DEFAULT_PACK));
+      packCache[currentPackId] = pack;
+
+      selectedVal = 0;
+      computeViewFit();
+
+      if (isGsPack()) ensureGsFiveLevels();
+      repopulateLevelSelect();
+      loadLevel(defaultLevelKeyForPack());
+
+      setStatus("Ready (" + EDITOR_VERSION + ")");
+      closeTools();
+    }
+
+    boot();
+  </script>
+</body>
+</html>

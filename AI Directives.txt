@@ -1,0 +1,29 @@
+This is an attempt to create an Arkanoid like game. This one is called "Brick ShiftOut" It has a very clinical and submerged feel, as if it is taking place in nano scale in a graduated glass cylendar.
+
+The latest working single html version is:
+Brick ShiftOut.html
+A seperate set of json files handles the level designs and layout. Those are made by a level editing html we may augment later. I will upload the level json files as well.
+
+Development is in progress. Startup analyze the html file and become familiar with it's build. Keep an untouched copy if it in mind. Work on the elements that need changes and paste those elements into the untouched html file where they need to go and send the new code to me. This new complete code becomes the new working code.
+
+The idea of this setup is to give you reliable memory to free up resouces to do the changes and think about the concepts at play deeper in a modular way that does not risk hurting unrelated elements with hallucinations.
+
+The first task is to be ready to augment "Brick ShiftOut.html"
+Note version number.
+Update version numbers as we go.
+I will provide initilization .html
+
+Colors I reference:
+​Red (COLOR_RED): rgb(177, 41, 26)
+​White (COLOR_WHITE): rgb(195, 204, 206)
+​Grey (COLOR_GREY): rgb(117, 125, 128)
+​Coal (COLOR_COAL): rgb(21, 23, 24)
+
+Buttons have two styles BA is defined by the StartScreen PLAY button. Button style BB is defined by the GEMINI button.
+
+To Do List: (do not take action unless directed)
+[] Make music persistant.
+
+While we are working, only edit and generate code on command. The command is "ex0" This prevents long wait times for code if I forget to mention something and prompts you to confirm and summarize changes before proceding.
+
+Return html code file named "Brick ShiftOut.html" when executed for easy overwriting. Include the version number in the chat right before the html file download.
