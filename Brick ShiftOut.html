@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v119</title>
+  <title>Brick ShiftOut v320</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -2197,10 +2197,14 @@ isRunning = false;
       }
 
       // === BRICK COLLISION BEHAVIOR PATCH ===
-      // Use swept ball/brick collision instead of testing only whether the ball
-      // center is inside an expanded rectangle. This prevents the ball from
-      // entering shared seams between adjacent bricks and getting repeatedly
-      // reflected by indestructible bricks.
+      // Swept ball/brick collision using a Minkowski-expanded rectangle.
+      //
+      // IMPORTANT: the collision normal returned by the sweep is the normal of
+      // the expanded collision boundary.  We keep that normal for the response
+      // instead of reconstructing a normal from the unexpanded brick.  Rebuilding
+      // from the raw brick corners can turn a clean side hit into a diagonal
+      // corner bounce, which lets the ball enter narrow vacancies between solid
+      // indestructible bricks.
       //
       // B5 (type 4): solid, indestructible, normal bounce
       // B4 (type 3): explodes and remains pass-through (no reflection)
@@ -2211,29 +2215,31 @@ isRunning = false;
 
         const inside = (x0 >= left && x0 <= right && y0 >= top && y0 <= bottom);
 
-        // If the ball center already starts inside the swept bounds, resolve it
-        // immediately by choosing the boundary most opposed to current motion.
+        // If the ball center already starts inside the expanded collision area,
+        // choose the boundary that best opposes the current movement, then use
+        // the nearest boundary as the deterministic tie-breaker.
         if (inside) {
           const candidates = [
-            { d: Math.abs(x0 - left),  nx: -1, ny: 0 },
-            { d: Math.abs(right - x0), nx:  1, ny: 0 },
-            { d: Math.abs(y0 - top),   nx: 0, ny: -1 },
-            { d: Math.abs(bottom - y0),nx: 0, ny:  1 }
+            { d: Math.abs(x0 - left),   nx: -1, ny: 0 },
+            { d: Math.abs(right - x0),  nx:  1, ny: 0 },
+            { d: Math.abs(y0 - top),    nx: 0,  ny: -1 },
+            { d: Math.abs(bottom - y0), nx: 0,  ny:  1 }
           ];
 
           candidates.sort((a, b) => {
-            const ad = (dx * a.nx + dy * a.ny);
-            const bd = (dx * b.nx + dy * b.ny);
-            // Prefer a boundary the ball is actually moving into; then use
-            // smallest penetration as the deterministic tie-breaker.
-            const ap = ad < 0 ? 0 : 1;
-            const bp = bd < 0 ? 0 : 1;
-            if (ap !== bp) return ap - bp;
+            const aDot = dx * a.nx + dy * a.ny;
+            const bDot = dx * b.nx + dy * b.ny;
+            // For a point already inside the expanded box, prefer the boundary
+            // the current motion is heading toward (positive outward normal dot),
+            // then use smallest penetration as the deterministic tie-breaker.
+            const aToward = aDot > 0 ? 0 : 1;
+            const bToward = bDot > 0 ? 0 : 1;
+            if (aToward !== bToward) return aToward - bToward;
             return a.d - b.d;
           });
 
           const n = candidates[0];
-          return { t: 0, nx: n.nx, ny: n.ny };
+          return { t: 0, nx: n.nx, ny: n.ny, inside: true };
         }
 
         let tEnter = 0;
@@ -2274,10 +2280,11 @@ isRunning = false;
         }
 
         if (tEnter < 0 || tEnter > 1) return null;
-        return { t: tEnter, nx: enterNx, ny: enterNy };
+        return { t: tEnter, nx: enterNx, ny: enterNy, inside: false };
       }
 
       const BRICK_BALL_RADIUS = 16;
+      const BRICK_CONTACT_EPS = 0.75;
       const brickHits = [];
       const startX = ball.px;
       const startY = ball.py;
@@ -2287,88 +2294,88 @@ isRunning = false;
       bricks.forEach((b, idx) => {
         if (b.state !== 'normal') return;
 
-        // Minkowski-expanded rectangle: brick rect + ball radius + a tiny skin.
+        // Configuration-space collision: treat the ball center as a point, but
+        // expand each brick by the ball radius plus the small collision skin.
+        // This closes gaps that are physically too narrow for the ball to pass.
         const pad = BRICK_BALL_RADIUS + BRICK_COLLISION_PAD;
-        const hit = sweptPointAabb(
-          startX, startY, endX, endY,
-          b.x - pad, b.y - pad,
-          b.x + b.w + pad, b.y + b.h + pad
-        );
+        const left = b.x - pad;
+        const top = b.y - pad;
+        const right = b.x + b.w + pad;
+        const bottom = b.y + b.h + pad;
+
+        const hit = sweptPointAabb(startX, startY, endX, endY, left, top, right, bottom);
         if (!hit) return;
 
-        brickHits.push({ b, idx, ...hit });
+        brickHits.push({ b, idx, ...hit, left, top, right, bottom });
       });
 
       brickHits.sort((a, b) => {
         const dt = a.t - b.t;
         if (Math.abs(dt) > 0.00001) return dt;
 
-        // At a shared seam, choose the surface that most directly opposes
-        // the incoming velocity. This avoids bouncing alternately between
-        // the two neighboring bricks.
-        const av = endX - startX, aw = endY - startY;
-        const aApproach = av * a.nx + aw * a.ny;
-        const bApproach = av * b.nx + aw * b.ny;
+        // Prefer the surface that most directly opposes the incoming motion.
+        const mx = endX - startX;
+        const my = endY - startY;
+        const aApproach = mx * a.nx + my * a.ny;
+        const bApproach = mx * b.nx + my * b.ny;
         return aApproach - bApproach;
       });
 
       let solidHandled = false;
+
       for (const hit of brickHits) {
         const b = hit.b;
 
-        // Ignore solid hits after the first solid collision in this frame.
-        // Pass-through bricks may still be destroyed before that collision.
+        // Only one solid brick may reverse the ball during a frame.  The key
+        // difference from the previous version is that the ball is now placed
+        // outside the EXPANDED boundary, so the neighboring brick cannot catch
+        // the same ball inside a shared seam on the next frame.
         if (solidHandled) break;
 
         if (b.type === 3) {
           // B4: explode, NO slowdown, NO reflection (pass-through).
-          b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
+          b.state = 'breaking';
+          b.animFrame = 1;
+          b.breakT = 0;
+          score += BRICK_POINTS[b.type];
           createDebris(b.x + 45, b.y + 12);
           playSfx('brick');
           continue;
         }
 
-        // Reconstruct the actual circle-vs-rectangle contact from the swept
-        // hit. The closest point on the real brick gives us a true face/corner
-        // normal, while the final position places the ball just outside the
-        // brick. This is what prevents a corner hit from entering a shared seam.
         const dx = endX - startX;
         const dy = endY - startY;
         const contactT = Math.max(0, Math.min(1, hit.t));
         const contactX = startX + dx * contactT;
         const contactY = startY + dy * contactT;
 
-        const closestX = Math.max(b.x, Math.min(b.x + b.w, contactX));
-        const closestY = Math.max(b.y, Math.min(b.y + b.h, contactY));
-        let nx = contactX - closestX;
-        let ny = contactY - closestY;
-        const nLen = Math.hypot(nx, ny);
+        const nx = hit.nx;
+        const ny = hit.ny;
 
-        if (nLen > 1e-6) {
-          nx /= nLen;
-          ny /= nLen;
+        // Put the ball just outside the expanded collision boundary.  Because
+        // that boundary already includes the ball radius, this is equivalent to
+        // separating the actual circle from the brick, without allowing it to
+        // remain partially buried in a shared pocket.
+        if (hit.inside) {
+          if (nx < 0) ball.x = hit.left - BRICK_CONTACT_EPS;
+          else if (nx > 0) ball.x = hit.right + BRICK_CONTACT_EPS;
+          else if (ny < 0) ball.y = hit.top - BRICK_CONTACT_EPS;
+          else if (ny > 0) ball.y = hit.bottom + BRICK_CONTACT_EPS;
         } else {
-          // Fallback for a numerically exact edge/inside case.
-          nx = hit.nx;
-          ny = hit.ny;
+          ball.x = contactX + nx * BRICK_CONTACT_EPS;
+          ball.y = contactY + ny * BRICK_CONTACT_EPS;
         }
 
-        const CONTACT_EPS = 0.75;
-        const safeCenterDist = BRICK_BALL_RADIUS + CONTACT_EPS;
-        ball.x = closestX + nx * safeCenterDist;
-        ball.y = closestY + ny * safeCenterDist;
         ball.px = ball.x;
         ball.py = ball.y;
 
-        // Reflect against the actual face/corner normal. Reflection across a
-        // unit normal preserves the ball's speed and handles side + corner hits
-        // without assuming every brick collision is a vertical bounce.
+        // Reflect only if moving into the collision surface.  Reflection uses
+        // the swept boundary normal, preventing false diagonal corner bounces.
         const vn = (ball.vx * nx) + (ball.vy * ny);
         if (vn < 0) {
           let rvx = ball.vx - (2 * vn * nx);
           let rvy = ball.vy - (2 * vn * ny);
 
-          // Preserve the existing optional per-brick speed-delta hook.
           const speedDelta = (BRICK_SPEED_DELTA[b.type] ?? 0);
           if (speedDelta !== 0) {
             const speed = Math.hypot(rvx, rvy) || 0.0001;
@@ -2380,8 +2387,8 @@ isRunning = false;
           ball.vx = rvx;
           ball.vy = rvy;
         } else {
-          // Defensive: if already separating, push velocity away from the
-          // contact normal rather than allowing it to remain trapped.
+          // Defensive recovery if numerical drift says the ball is already
+          // separating.  Force a component away from the solid surface.
           const speed = Math.hypot(ball.vx, ball.vy) || 0.1;
           let rvx = ball.vx;
           let rvy = ball.vy;
@@ -2406,7 +2413,10 @@ isRunning = false;
         }
         else {
           // Types 0/1: bounce + explode.
-          b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
+          b.state = 'breaking';
+          b.animFrame = 1;
+          b.breakT = 0;
+          score += BRICK_POINTS[b.type];
           createDebris(b.x + 45, b.y + 12);
           playSfx('brick');
         }
@@ -3224,7 +3234,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v119 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v320 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
