@@ -190,7 +190,7 @@
     const BRICK_SPEED_DELTA = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }; // tweak later if desired
 
     // Brick collision padding (px): expands brick hit bounds to prevent the ball slipping between tight seams
-    const BRICK_COLLISION_PAD = 8;
+    const BRICK_COLLISION_PAD = 2; // small collision skin; swept ball geometry handles the main hit area
 
 
     // Angle-only "anti-vertical" nudges (preserve overall speed magnitude)
@@ -451,6 +451,16 @@ function killScubaPurgeFx() {
     let mouseStartX = 0, mouseStartY = 0, mouseStartT = 0;
     let mouseDown = false, mouseLaunchCandidate = false; // retained for drag-state compatibility; mouse launch is click-on-paddle
     let lastTouchInputT = 0; // prevents compatibility mouse events from duplicating a touch action
+
+    // === KEYBOARD ARROW CONTROLS ===
+    // Simple desktop controls: Left = move paddle left, Right = move paddle right, Up = launch.
+    const KEYBOARD_PADDLE_SPEED = 11.0; // game-px per 60fps frame
+    var keyboardLeftDown = false, keyboardRightDown = false;
+    var keyboardLaunchConsumed = false;
+
+    // Pause control leaves a clear 50px buffer above the paddle/rebound zone.
+    const PAUSE_ZONE_TOP = 64;
+    const PAUSE_ZONE_GAP = 50;
 
     // === JSON FILES ===
     const G_LEVELS_JSON_URL     = "Lv_Gs.json";
@@ -1602,6 +1612,7 @@ function updateMenuBubbles() {
       pendingGeminiWinAfterOutro = false;
       pendingWinEndAfterShockwave = false;
       pendingSkipGameOverAfterOutro = false;
+      keyboardLeftDown = false; keyboardRightDown = false; keyboardLaunchConsumed = false;
       gamePhase = 'MENU'; levelIntro.active = false;
       lives = 3;
       score = 0;
@@ -1617,6 +1628,7 @@ function updateMenuBubbles() {
       transitionToVideo(true, true);
 
       isRunning = true;
+      try { canvas && canvas.focus({ preventScroll: true }); } catch(e) {}
       loop();
     }
 
@@ -1629,6 +1641,7 @@ function updateMenuBubbles() {
       pendingGeminiWinAfterOutro = false;
       pendingWinEndAfterShockwave = false;
       pendingSkipGameOverAfterOutro = false;
+      keyboardLeftDown = false; keyboardRightDown = false; keyboardLaunchConsumed = false;
       lives = 3; score = 0; isVideoPlaying = false;
       ballTrail = []; particles = []; gameBubbles = [];
 
@@ -1640,6 +1653,7 @@ function updateMenuBubbles() {
 
       document.getElementById('game-skip').style.display = 'none';
       isRunning = true;
+      try { canvas && canvas.focus({ preventScroll: true }); } catch(e) {}
       loop();
     }
 
@@ -1725,6 +1739,7 @@ launchCueT = 0;
       pendingGeminiWinAfterOutro = false;
       pendingWinEndAfterShockwave = false;
       pendingSkipGameOverAfterOutro = false;
+      keyboardLeftDown = false; keyboardRightDown = false; keyboardLaunchConsumed = false;
       try { if (!bgMusicEverStarted) { bgMusic.pause(); } // persistent music
  } catch(e) {}
 
@@ -1882,6 +1897,18 @@ isRunning = false;
 
     // === ENGINE UPDATE LAYERS (gameplay + FX only) ===
     function updatePaddleKinematics() {
+      // Arrow-key paddle movement. This runs alongside touch/mouse movement; the
+      // latest input simply determines the paddle position for that frame.
+      if (isRunning && currentLevel > 0 && !isVideoPlaying) {
+        let keyDir = 0;
+        if (keyboardLeftDown) keyDir -= 1;
+        if (keyboardRightDown) keyDir += 1;
+        if (keyDir !== 0) {
+          paddle.x += keyDir * KEYBOARD_PADDLE_SPEED * dtNorm;
+          paddle.x = Math.max(0, Math.min(720 - paddle.w, paddle.x));
+        }
+      }
+
       paddle.vx = (paddle.x - paddle.lastX) / Math.max(0.001, dtNorm);
       paddle.lastX = paddle.x;
     }
@@ -2157,40 +2184,222 @@ isRunning = false;
       }
 
       // === BRICK COLLISION BEHAVIOR PATCH ===
-      // B5 (type 4): normal bounce + brick explodes
-      // B4 (type 3): brick explodes, ball passes through (no reflect, no slowdown)
-      let brickCollisionHandled = false;
-      bricks.forEach(b => {
-        if (brickCollisionHandled) return;
-        if (b.state === 'normal' && ball.x > (b.x - BRICK_COLLISION_PAD) && ball.x < (b.x + b.w + BRICK_COLLISION_PAD) && ball.y > (b.y - BRICK_COLLISION_PAD) && ball.y < (b.y + b.h + BRICK_COLLISION_PAD)) {
+      // Use swept ball/brick collision instead of testing only whether the ball
+      // center is inside an expanded rectangle. This prevents the ball from
+      // entering shared seams between adjacent bricks and getting repeatedly
+      // reflected by indestructible bricks.
+      //
+      // B5 (type 4): solid, indestructible, normal bounce
+      // B4 (type 3): explodes and remains pass-through (no reflection)
 
-          if (b.type === 3) {
-            // B4: explode, NO slowdown, NO reflection (pass-through)
-            b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
-            createDebris(b.x + 45, b.y + 12); playSfx('brick');
-            // do not modify ball.vx/vy
-          }
-          else if (b.type === 4) {
-            // B5: indestructible obstacle: normal bounce only (no break, no score)
-            ({vx: ball.vx, vy: ball.vy} = applyBrickBouncePreserveSpeed(b.type, ball.vx, ball.vy, 'y'));
-            playSfx('brick');
-          }
-          else if (b.type === 2) {
-            // armor: bounce, degrade to type 0
-            ({vx: ball.vx, vy: ball.vy} = applyBrickBouncePreserveSpeed(b.type, ball.vx, ball.vy, 'y')); b.type = 0; playSfx('paddle');
-          }
-          else {
-            // types 0/1: bounce + explode
-            ({vx: ball.vx, vy: ball.vy} = applyBrickBouncePreserveSpeed(b.type, ball.vx, ball.vy, 'y'));
-            b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
-            createDebris(b.x + 45, b.y + 12); playSfx('brick');
-          }
-          // Expanded collision boxes intentionally overlap. Only allow one solid
-          // brick to reverse the ball during a single frame, preventing rapid
-          // double-bounces when the ball is in a shared collision zone.
-          brickCollisionHandled = (b.type !== 3);
+      function sweptPointAabb(x0, y0, x1, y1, left, top, right, bottom) {
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+
+        const inside = (x0 >= left && x0 <= right && y0 >= top && y0 <= bottom);
+
+        // If the ball center already starts inside the swept bounds, resolve it
+        // immediately by choosing the boundary most opposed to current motion.
+        if (inside) {
+          const candidates = [
+            { d: Math.abs(x0 - left),  nx: -1, ny: 0 },
+            { d: Math.abs(right - x0), nx:  1, ny: 0 },
+            { d: Math.abs(y0 - top),   nx: 0, ny: -1 },
+            { d: Math.abs(bottom - y0),nx: 0, ny:  1 }
+          ];
+
+          candidates.sort((a, b) => {
+            const ad = (dx * a.nx + dy * a.ny);
+            const bd = (dx * b.nx + dy * b.ny);
+            // Prefer a boundary the ball is actually moving into; then use
+            // smallest penetration as the deterministic tie-breaker.
+            const ap = ad < 0 ? 0 : 1;
+            const bp = bd < 0 ? 0 : 1;
+            if (ap !== bp) return ap - bp;
+            return a.d - b.d;
+          });
+
+          const n = candidates[0];
+          return { t: 0, nx: n.nx, ny: n.ny };
         }
+
+        let tEnter = 0;
+        let tExit = 1;
+        let enterNx = 0;
+        let enterNy = 0;
+
+        if (Math.abs(dx) < 1e-9) {
+          if (x0 < left || x0 > right) return null;
+        } else {
+          const tx1 = (left - x0) / dx;
+          const tx2 = (right - x0) / dx;
+          const txEnter = Math.min(tx1, tx2);
+          const txExit  = Math.max(tx1, tx2);
+          if (txEnter > tEnter) {
+            tEnter = txEnter;
+            enterNx = dx > 0 ? -1 : 1;
+            enterNy = 0;
+          }
+          tExit = Math.min(tExit, txExit);
+          if (tEnter > tExit) return null;
+        }
+
+        if (Math.abs(dy) < 1e-9) {
+          if (y0 < top || y0 > bottom) return null;
+        } else {
+          const ty1 = (top - y0) / dy;
+          const ty2 = (bottom - y0) / dy;
+          const tyEnter = Math.min(ty1, ty2);
+          const tyExit  = Math.max(ty1, ty2);
+          if (tyEnter > tEnter) {
+            tEnter = tyEnter;
+            enterNx = 0;
+            enterNy = dy > 0 ? -1 : 1;
+          }
+          tExit = Math.min(tExit, tyExit);
+          if (tEnter > tExit) return null;
+        }
+
+        if (tEnter < 0 || tEnter > 1) return null;
+        return { t: tEnter, nx: enterNx, ny: enterNy };
+      }
+
+      const BRICK_BALL_RADIUS = 16;
+      const brickHits = [];
+      const startX = ball.px;
+      const startY = ball.py;
+      const endX = ball.x;
+      const endY = ball.y;
+
+      bricks.forEach((b, idx) => {
+        if (b.state !== 'normal') return;
+
+        // Minkowski-expanded rectangle: brick rect + ball radius + a tiny skin.
+        const pad = BRICK_BALL_RADIUS + BRICK_COLLISION_PAD;
+        const hit = sweptPointAabb(
+          startX, startY, endX, endY,
+          b.x - pad, b.y - pad,
+          b.x + b.w + pad, b.y + b.h + pad
+        );
+        if (!hit) return;
+
+        brickHits.push({ b, idx, ...hit });
       });
+
+      brickHits.sort((a, b) => {
+        const dt = a.t - b.t;
+        if (Math.abs(dt) > 0.00001) return dt;
+
+        // At a shared seam, choose the surface that most directly opposes
+        // the incoming velocity. This avoids bouncing alternately between
+        // the two neighboring bricks.
+        const av = endX - startX, aw = endY - startY;
+        const aApproach = av * a.nx + aw * a.ny;
+        const bApproach = av * b.nx + aw * b.ny;
+        return aApproach - bApproach;
+      });
+
+      let solidHandled = false;
+      for (const hit of brickHits) {
+        const b = hit.b;
+
+        // Ignore solid hits after the first solid collision in this frame.
+        // Pass-through bricks may still be destroyed before that collision.
+        if (solidHandled) break;
+
+        if (b.type === 3) {
+          // B4: explode, NO slowdown, NO reflection (pass-through).
+          b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
+          createDebris(b.x + 45, b.y + 12);
+          playSfx('brick');
+          continue;
+        }
+
+        // Reconstruct the actual circle-vs-rectangle contact from the swept
+        // hit. The closest point on the real brick gives us a true face/corner
+        // normal, while the final position places the ball just outside the
+        // brick. This is what prevents a corner hit from entering a shared seam.
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const contactT = Math.max(0, Math.min(1, hit.t));
+        const contactX = startX + dx * contactT;
+        const contactY = startY + dy * contactT;
+
+        const closestX = Math.max(b.x, Math.min(b.x + b.w, contactX));
+        const closestY = Math.max(b.y, Math.min(b.y + b.h, contactY));
+        let nx = contactX - closestX;
+        let ny = contactY - closestY;
+        const nLen = Math.hypot(nx, ny);
+
+        if (nLen > 1e-6) {
+          nx /= nLen;
+          ny /= nLen;
+        } else {
+          // Fallback for a numerically exact edge/inside case.
+          nx = hit.nx;
+          ny = hit.ny;
+        }
+
+        const CONTACT_EPS = 0.75;
+        const safeCenterDist = BRICK_BALL_RADIUS + CONTACT_EPS;
+        ball.x = closestX + nx * safeCenterDist;
+        ball.y = closestY + ny * safeCenterDist;
+        ball.px = ball.x;
+        ball.py = ball.y;
+
+        // Reflect against the actual face/corner normal. Reflection across a
+        // unit normal preserves the ball's speed and handles side + corner hits
+        // without assuming every brick collision is a vertical bounce.
+        const vn = (ball.vx * nx) + (ball.vy * ny);
+        if (vn < 0) {
+          let rvx = ball.vx - (2 * vn * nx);
+          let rvy = ball.vy - (2 * vn * ny);
+
+          // Preserve the existing optional per-brick speed-delta hook.
+          const speedDelta = (BRICK_SPEED_DELTA[b.type] ?? 0);
+          if (speedDelta !== 0) {
+            const speed = Math.hypot(rvx, rvy) || 0.0001;
+            const target = Math.max(0.1, speed + speedDelta);
+            rvx = (rvx / speed) * target;
+            rvy = (rvy / speed) * target;
+          }
+
+          ball.vx = rvx;
+          ball.vy = rvy;
+        } else {
+          // Defensive: if already separating, push velocity away from the
+          // contact normal rather than allowing it to remain trapped.
+          const speed = Math.hypot(ball.vx, ball.vy) || 0.1;
+          let rvx = ball.vx;
+          let rvy = ball.vy;
+          const away = (rvx * nx) + (rvy * ny);
+          if (away <= 0) {
+            rvx -= 2 * away * nx;
+            rvy -= 2 * away * ny;
+          }
+          const mag = Math.hypot(rvx, rvy) || 1;
+          ball.vx = (rvx / mag) * speed;
+          ball.vy = (rvy / mag) * speed;
+        }
+
+        if (b.type === 4) {
+          // B5: indestructible obstacle: normal bounce only (no break, no score).
+          playSfx('brick');
+        }
+        else if (b.type === 2) {
+          // Armor: bounce, degrade to type 0.
+          b.type = 0;
+          playSfx('paddle');
+        }
+        else {
+          // Types 0/1: bounce + explode.
+          b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
+          createDebris(b.x + 45, b.y + 12);
+          playSfx('brick');
+        }
+
+        solidHandled = true;
+      }
     }
 
     function draw() {
@@ -2785,9 +2994,8 @@ ctx.globalAlpha = 1.0;
         if (currentLevel > 0 && !isVideoPlaying) {
           // Pause control covers only the playfield: below the score/HUD and above the paddle.
           // Do not let touches in the score area toggle the game state.
-          const PAUSE_ZONE_TOP = 64;
-          const PAUSE_ZONE_BOTTOM = paddle.y;
-          if (tY >= PAUSE_ZONE_TOP && tY < PAUSE_ZONE_BOTTOM) { toggleGameState(); return; }
+          const pauseBottom = paddle.y - PAUSE_ZONE_GAP;
+          if (tY >= PAUSE_ZONE_TOP && tY < pauseBottom) { toggleGameState(); return; }
           if (isRunning) {
             if (ball.state === "docked" && !shockwave.active && !ballSpawnFx.active && ballRenderAlpha >= 1.0) { launchCandidate = true; }
             paddle.off = tX - paddle.x;
@@ -2828,11 +3036,11 @@ ctx.globalAlpha = 1.0;
         }
       });
 
-      // === DESKTOP MOUSE CONTROLS ===
-      // Left-button drag controls the paddle and can launch the docked ball with
-      // the same short upward flick gesture used by touch. Plain mouse movement
-      // also tracks the paddle so desktop play does not require holding the button.
-      function getMouseGamePosition(e) {
+      // === DESKTOP MOUSE / POINTER CONTROLS ===
+      // Direct pointer listeners on the game canvas are more reliable inside Wix's
+      // sandboxed HTML iframe than window-level mouse listeners. Touch behavior above
+      // remains unchanged; this block only responds to pointerType === "mouse".
+      function getPointerGamePosition(e) {
         const rect = canvas.getBoundingClientRect();
         return {
           x: (e.clientX - rect.left) / scale,
@@ -2840,77 +3048,82 @@ ctx.globalAlpha = 1.0;
         };
       }
 
-      function movePaddleWithMouse(gameX) {
+      function movePaddleWithPointer(gameX) {
         if (!isRunning || currentLevel === 0 || isVideoPlaying) return;
-        // Mouse control is desktop-only and stays inside the game's 720px playfield.
         paddle.x = Math.max(0, Math.min(720 - paddle.w, gameX - paddle.off));
       }
 
-      function isMouseOverCanvas(e) {
-        const rect = canvas.getBoundingClientRect();
-        return (e.clientX >= rect.left && e.clientX <= rect.right &&
-                e.clientY >= rect.top && e.clientY <= rect.bottom);
+      function focusGameCanvas() {
+        try { canvas.focus({ preventScroll: true }); }
+        catch(e) { try { canvas.focus(); } catch(_) {} }
+      }
+
+      function isLaunchReady() {
+        return currentLevel > 0 && !isVideoPlaying && isRunning &&
+               ball.state === "docked" && !shockwave.active &&
+               !ballSpawnFx.active && ballRenderAlpha >= 1.0;
       }
 
       function launchBallFromMouseClick() {
-        // Mouse launch is deliberately different from touch: one click on the
-        // paddle launches immediately. The paddle's current horizontal velocity
-        // is converted into the same flick-angle math used by touch, so the
-        // existing damping/clamping parameters remain in control.
+        // One click launches. The existing launchBallFromDock() applies the same
+        // angle damping/clamp parameters used by touch.
         const velocity = Math.max(-6, Math.min(6, paddle.vx || 0));
         const mouseFlickDX = velocity * 2.5;
-        const mouseFlickDY = FLICK_MIN_DY; // -22: same upward reference used by touch
+        const mouseFlickDY = FLICK_MIN_DY;
         launchBallFromDock(mouseFlickDX, mouseFlickDY);
       }
 
-      window.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return;
-        if (!canvas) return;
+      function isMouseLaunchArea(p) {
+        // Generous invisible target around the paddle.
+        // The top edge starts exactly at the bottom of the pause zone, leaving
+        // the 50px safety gap above the paddle.
+        const launchLeft = paddle.x - 70;
+        const launchRight = paddle.x + paddle.w + 70;
+        const launchTop = paddle.y - PAUSE_ZONE_GAP;
+        const launchBottom = paddle.y + paddle.h + 70;
+        return p.x >= launchLeft && p.x <= launchRight &&
+               p.y >= launchTop && p.y <= launchBottom;
+      }
 
-        // Ignore the synthetic mouse event that some browsers emit after touch.
+      canvas.tabIndex = 0;
+      canvas.setAttribute('aria-label', 'Brick ShiftOut game area');
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
         if (performance.now() - lastTouchInputT < 500) return;
 
-        // Menu/end-screen clicks bubble to window; only gameplay canvas clicks
-        // should be interpreted as paddle/mouse input.
-        if (!isVideoPlaying && (e.target !== canvas || !isMouseOverCanvas(e))) return;
-
-        const p = getMouseGamePosition(e);
+        focusGameCanvas();
         mouseDown = true;
+        const p = getPointerGamePosition(e);
         mouseStartX = p.x;
         mouseStartY = p.y;
         mouseStartT = performance.now();
         mouseLaunchCandidate = false;
 
-        if (isVideoPlaying && p.y > 1000) {
-          closeVideo();
+        try { canvas.setPointerCapture(e.pointerId); } catch(_) {}
+
+        if (isVideoPlaying) {
+          if (p.y > 1000) closeVideo();
           mouseDown = false;
           return;
         }
 
-        if (currentLevel > 0 && !isVideoPlaying) {
-          // Match the touch pause zone: score/HUD stays outside the toggle area.
-          const PAUSE_ZONE_TOP = 64;
-          const PAUSE_ZONE_BOTTOM = paddle.y;
-          if (p.y >= PAUSE_ZONE_TOP && p.y < PAUSE_ZONE_BOTTOM) {
+        if (currentLevel > 0) {
+          // Keep the pause hit zone safely above the paddle/rebound area.
+          const pauseBottom = paddle.y - PAUSE_ZONE_GAP;
+          if (p.y >= PAUSE_ZONE_TOP && p.y < pauseBottom) {
             toggleGameState();
             mouseDown = false;
             return;
           }
 
           if (isRunning) {
-            // Keep normal mouse paddle movement behavior.
+            // Preserve the grab point when dragging.
             paddle.off = p.x - paddle.x;
-            movePaddleWithMouse(p.x);
+            movePaddleWithPointer(p.x);
 
-            // Desktop launch rule: a single left-click directly on the paddle
-            // launches the docked ball. No mouse flick gesture is required.
-            const onPaddle = (p.x >= paddle.x && p.x <= paddle.x + paddle.w &&
-                              p.y >= paddle.y && p.y <= paddle.y + paddle.h);
-            if (onPaddle &&
-                ball.state === "docked" &&
-                !shockwave.active &&
-                !ballSpawnFx.active &&
-                ballRenderAlpha >= 1.0) {
+            // Large invisible launch target around the paddle.
+            if (isLaunchReady() && isMouseLaunchArea(p)) {
               launchBallFromMouseClick();
               mouseDown = false;
               mouseLaunchCandidate = false;
@@ -2920,34 +3133,62 @@ ctx.globalAlpha = 1.0;
         }
       });
 
-      window.addEventListener('mousemove', (e) => {
-        if (!canvas) return;
+      canvas.addEventListener('pointermove', (e) => {
+        if (e.pointerType !== 'mouse') return;
         if (performance.now() - lastTouchInputT < 500) return;
         if (!isRunning || currentLevel === 0 || isVideoPlaying) return;
-        if (!isMouseOverCanvas(e)) return;
 
-        const p = getMouseGamePosition(e);
-
-        // Always track the paddle with the mouse during desktop gameplay.
-        // While dragging, preserve the grab offset established on mousedown.
-        if (!mouseDown) {
-          paddle.off = paddle.w * 0.5;
-        }
-        movePaddleWithMouse(p.x);
+        const p = getPointerGamePosition(e);
+        if (!mouseDown) paddle.off = paddle.w * 0.5;
+        movePaddleWithPointer(p.x);
       });
 
-      window.addEventListener('mouseup', (e) => {
-        if (e.button !== 0) return;
-        if (!mouseDown) return;
-
+      canvas.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'mouse' || e.button !== 0) return;
         mouseDown = false;
         mouseLaunchCandidate = false;
+        try { canvas.releasePointerCapture(e.pointerId); } catch(_) {}
       });
 
-      window.addEventListener('mouseleave', () => {
-        // Release a drag if the pointer leaves the browser window before mouseup.
+      canvas.addEventListener('pointercancel', (e) => {
+        if (e.pointerType !== 'mouse') return;
         mouseDown = false;
         mouseLaunchCandidate = false;
+        try { canvas.releasePointerCapture(e.pointerId); } catch(_) {}
+      });
+
+      // === ARROW KEY CONTROLS ===
+      function keyboardLaunch() {
+        if (keyboardLaunchConsumed) return;
+        keyboardLaunchConsumed = true;
+        if (isLaunchReady()) launchBallFromMouseClick();
+      }
+
+      window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        if (key !== 'ArrowLeft' && key !== 'ArrowRight' && key !== 'ArrowUp') return;
+
+        // Only consume the arrows while this embedded game is actually in play.
+        if (currentLevel === 0 || isVideoPlaying) return;
+
+        e.preventDefault();
+        focusGameCanvas();
+
+        if (key === 'ArrowLeft') keyboardLeftDown = true;
+        if (key === 'ArrowRight') keyboardRightDown = true;
+        if (key === 'ArrowUp') keyboardLaunch();
+      });
+
+      window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); keyboardLeftDown = false; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); keyboardRightDown = false; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); keyboardLaunchConsumed = false; }
+      });
+
+      window.addEventListener('blur', () => {
+        keyboardLeftDown = false;
+        keyboardRightDown = false;
+        keyboardLaunchConsumed = false;
       });
 
       document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -2970,7 +3211,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v314 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v317 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
@@ -3024,7 +3265,7 @@ ctx.globalAlpha = 1.0;
   <div id="fader"></div>
   <button id="game-skip" class="util-btn" onclick="handleGameSkip()">SKIP</button>
   <div id="video-container"><video id="adh-video" playsinline preload="auto"></video></div>
-  <canvas id="gameCanvas" width="720" height="1280"></canvas>
+  <canvas id="gameCanvas" width="720" height="1280" tabindex="0"></canvas>
   <canvas id="fxTopCanvas" width="720" height="1280"></canvas>
 </body>
 </html>
