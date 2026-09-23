@@ -15,9 +15,21 @@
     #fader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; transition: opacity 1.0s; pointer-events: none; z-index: 6000; }
     .fast-fade { transition: opacity 0.5s !important; }
 
-    .game-btn { padding: 10px 30px; font-size: 18px; font-weight: 900; font-family: "Arial Black", sans-serif; border-radius: 4px; cursor: pointer; margin: 10px; width: 300px; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: center; align-items: center; }
+    .game-btn { padding: 10px 30px; font-size: 18px; font-weight: 900; font-family: "Arial Black", sans-serif; border-radius: 4px; cursor: pointer; margin: 10px; width: 300px; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
     .btn-BA { background: rgba(177, 41, 26, 0.4) !important; color: rgb(195, 204, 206) !important; border: 3px solid rgb(177, 41, 26) !important; box-shadow: 0 0 15px rgb(177, 41, 26), inset 0 0 10px rgba(177, 41, 26, 0.3) !important; text-shadow: 0 0 8px rgb(195, 204, 206) !important; }
     .btn-BB { background: rgb(21, 23, 24) !important; color: rgb(195, 204, 206) !important; border: 3px solid rgb(117, 125, 128) !important; box-shadow: 0 0 15px rgba(117, 125, 128, 0.5) !important; text-shadow: 0 0 8px rgb(195, 204, 206) !important; }
+
+    /* Subtle 10% white hover/focus highlight for every button. */
+    button::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.10);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease;
+    }
+    button:hover::after, button:focus-visible::after { opacity: 1; }
 
     .adh-img-btn { padding: 12px !important; background: rgba(0, 0, 0, 0.5) !important; border: 1px solid rgb(117, 125, 128) !important; box-shadow: none !important; }
     .adh-img-btn img { width: 100%; height: auto; display: block; }
@@ -36,7 +48,7 @@
 
     .status-text { font-family: "Arial Black", sans-serif; font-weight: 900; font-size: 42px; color: rgb(195, 204, 206); text-shadow: 0 0 20px rgb(177, 41, 26); margin-bottom: 40px; letter-spacing: 6px; text-transform: uppercase; }
     .util-btn { background: rgba(10, 12, 13, 0.9); border: 1px solid rgb(117, 125, 128); color: rgb(195, 204, 206); font-family: "Arial Black", sans-serif; font-size: 10px; border-radius: 2px; cursor: pointer; }
-    #game-skip { position: absolute; z-index: 1500; display: none; transform: translateY(-50%); }
+    #game-skip { position: absolute; z-index: 1500; display: none; transform: translateY(-50%); overflow: hidden; }
 
     #endBubblesCanvas { z-index: 0; pointer-events: none; }
     #fxTopCanvas { z-index: 5500; pointer-events: none; }
@@ -94,14 +106,35 @@
       flex-direction: column;
       justify-content: flex-start;
       gap: 2px;
+      position: relative;
     }
     .key-row { display: flex; align-items: center; gap: 8px; margin: 1px 0; }
     .keyset-sprite { width: 45px; height: 12px; display: block; position: relative; left: auto; top: auto; transform: none; margin: 0; }
     .key-desc { font-family: Arial, sans-serif; font-size: 12px; color: rgb(117, 125, 128); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .about-promo {
+      width: 100%;
+      margin-top: auto;
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+    .about-promo-label {
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      line-height: 1.1;
+      letter-spacing: 1px;
+      text-transform: none;
+      color: rgba(117, 125, 128, 0.95);
+      text-align: center;
+      text-shadow: 0 0 8px rgba(0,0,0,0.6);
+    }
     .about-adh-btn {
       width: min(100%, 260px) !important;
       min-width: 0 !important;
-      margin: 10px auto 0 !important;
+      margin: 0 auto !important;
       padding: 6px !important;
       align-self: center;
       flex: 0 0 auto;
@@ -3263,9 +3296,12 @@ ctx.globalAlpha = 1.0;
           <div class="key-row"><canvas class="keyset-sprite" data-brick="2" width="45" height="12"></canvas><div class="key-desc">B3 — 2x Tough Brick.</div></div>
           <div class="key-row"><canvas class="keyset-sprite" data-brick="3" width="45" height="12"></canvas><div class="key-desc">B4 — Phase brick; ball passes through.</div></div>
           <div class="key-row"><canvas class="keyset-sprite" data-brick="4" width="45" height="12"></canvas><div class="key-desc">B5 — Indestructable Brick.</div></div>
-          <button class="game-btn adh-img-btn about-adh-btn" onclick="window.open('https://nathan24425.wixsite.com/a-distant-hemisphere', '_blank')">
-            <img src="ADH.png" alt="A Distant Hemisphere">
-          </button>
+          <div class="about-promo">
+            <div class="about-promo-label">More fun from in810n Studio:</div>
+            <button class="game-btn adh-img-btn about-adh-btn" onclick="window.open('https://nathan24425.wixsite.com/a-distant-hemisphere', '_blank')">
+              <img src="ADH.png" alt="A Distant Hemisphere">
+            </button>
+          </div>
         </div>
       </div>
     </div>
