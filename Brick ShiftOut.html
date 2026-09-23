@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v314</title>
+  <title>Brick ShiftOut v119</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -98,6 +98,19 @@
     .key-row { display: flex; align-items: center; gap: 8px; margin: 1px 0; }
     .keyset-sprite { width: 45px; height: 12px; display: block; position: relative; left: auto; top: auto; transform: none; margin: 0; }
     .key-desc { font-family: Arial, sans-serif; font-size: 12px; color: rgb(117, 125, 128); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .about-adh-btn {
+      width: min(100%, 260px) !important;
+      min-width: 0 !important;
+      margin: 10px auto 0 !important;
+      padding: 6px !important;
+      align-self: center;
+      flex: 0 0 auto;
+    }
+    .about-adh-btn img {
+      width: 100%;
+      max-height: 58px;
+      object-fit: contain;
+    }
 
 
     /* === INIT SCREEN === */
@@ -460,7 +473,7 @@ function killScubaPurgeFx() {
 
     // Pause control leaves a clear 50px buffer above the paddle/rebound zone.
     const PAUSE_ZONE_TOP = 64;
-    const PAUSE_ZONE_GAP = 50;
+    const PAUSE_ZONE_GAP = 150;
 
     // === JSON FILES ===
     const G_LEVELS_JSON_URL     = "Lv_Gs.json";
@@ -3211,18 +3224,11 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v317 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v119 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
   <div id="main-overlay" class="overlay" style="display:none;">
-    <div class="side-col-left" style="transform: translateY(calc(-50% - 50px));">
-      <button class="game-btn btn-BB thin-btn flush-left" onclick="startGLevel(1)">G1</button>
-      <button class="game-btn btn-BB thin-btn flush-left" onclick="startGLevel(2)">G2</button>
-      <button class="game-btn btn-BB thin-btn flush-left" onclick="startGLevel(3)">G3</button>
-      <button class="game-btn btn-BB thin-btn flush-left" onclick="startGLevel(4)">G4</button>
-      <button class="game-btn btn-BB thin-btn flush-left" onclick="startGLevel(5)">G5</button>
-    </div>
     <div class="side-col-right">
       <button class="game-btn btn-BA thin-btn flush-right" style="transform: translateY(50px);" onclick="showAbout()">ABOUT</button>
     </div>
@@ -3247,6 +3253,9 @@ ctx.globalAlpha = 1.0;
           <div class="key-row"><canvas class="keyset-sprite" data-brick="2" width="45" height="12"></canvas><div class="key-desc">B3 — 2x Tough Brick.</div></div>
           <div class="key-row"><canvas class="keyset-sprite" data-brick="3" width="45" height="12"></canvas><div class="key-desc">B4 — Phase brick; ball passes through.</div></div>
           <div class="key-row"><canvas class="keyset-sprite" data-brick="4" width="45" height="12"></canvas><div class="key-desc">B5 — Indestructable Brick.</div></div>
+          <button class="game-btn adh-img-btn about-adh-btn" onclick="window.open('https://nathan24425.wixsite.com/a-distant-hemisphere', '_blank')">
+            <img src="ADH.png" alt="A Distant Hemisphere">
+          </button>
         </div>
       </div>
     </div>
