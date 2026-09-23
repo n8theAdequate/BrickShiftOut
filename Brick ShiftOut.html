@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v308</title>
+  <title>Brick ShiftOut v314</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -190,7 +190,7 @@
     const BRICK_SPEED_DELTA = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }; // tweak later if desired
 
     // Brick collision padding (px): expands brick hit bounds to prevent the ball slipping between tight seams
-    const BRICK_COLLISION_PAD = 1;
+    const BRICK_COLLISION_PAD = 8;
 
 
     // Angle-only "anti-vertical" nudges (preserve overall speed magnitude)
@@ -380,6 +380,7 @@ function getBrickIntroDrawState(b) {
 
     var spriteSheet = new Image(), assetsLoaded = false, isGeminiMode = false;
     var videoEl, fader, isVideoPlaying = false, audioCtx, bgMusic = new Audio("Music.m4a"); bgMusic.loop = true;
+    var browserFocused = true;
     var bgMusicEverStarted = false; // once true, never intentionally pause music
     var canvas, ctx, endBubblesCanvas, endBubblesCtx, fxTopCanvas, fxTopCtx, scale = 1, isRunning = false, loopId = null, globalBkg = new Image(), startScreenBkg = new Image();
     startScreenBkg.src = 'StartScreen.jpg';
@@ -412,6 +413,10 @@ function killScubaPurgeFx() {
 }
 
     var pendingWinEndAfterShockwave = false;
+    var pendingGeminiWinAfterOutro = false;
+    // Set only when SKIP is pressed on the final PLAY/A.I. GEN level.
+    // The outro still plays, then the player is sent to GAME OVER.
+    var pendingSkipGameOverAfterOutro = false;
 
     var deathWave = { active: false, x: 0, y: 0, r: 0, maxR: 225, age: 0, life: 45 };
     var ballDeathTimer = 0;
@@ -440,6 +445,12 @@ function killScubaPurgeFx() {
     const LAUNCH_SPEED = 24.3;        // base launch speed
     let touchStartX = 0, touchStartY = 0, touchStartT = 0, launchCandidate = false;
     let lastFlickDX = 0, lastFlickDY = 0;
+
+    // === DESKTOP MOUSE INPUT ===
+    // Mouse controls mirror the existing touch behavior without replacing it.
+    let mouseStartX = 0, mouseStartY = 0, mouseStartT = 0;
+    let mouseDown = false, mouseLaunchCandidate = false; // retained for drag-state compatibility; mouse launch is click-on-paddle
+    let lastTouchInputT = 0; // prevents compatibility mouse events from duplicating a touch action
 
     // === JSON FILES ===
     const G_LEVELS_JSON_URL     = "Lv_Gs.json";
@@ -691,14 +702,26 @@ function startBgMusicOnce() {
     initState.audioStartPending = false;
     initState.audioStarted = true;
     try { bgMusic.muted = false; bgMusic.volume = 1.0; } catch(e) {}
-    bgMusic.play().catch(_ => {});
+    if (browserFocused) bgMusic.play().catch(_ => {});
   }, 50);
 }
 
 function ensureBgMusicPlaying() {
+  if (!browserFocused) return;
   if (initState.audioStartPending) return;
   if (!initState.audioStarted) return;
+
+  // During gameplay, music follows the game's pause state.
+  if (currentLevel > 0 && !isRunning) {
+    try { bgMusic.pause(); } catch(e) {}
+    return;
+  }
+
   if (bgMusic && bgMusic.paused) bgMusic.play().catch(_ => {});
+}
+
+function pauseBgMusicForFocusLoss() {
+  try { if (bgMusic) bgMusic.pause(); } catch(e) {}
 }
 
 
@@ -863,14 +886,19 @@ const init = document.getElementById('init-screen');
     }
 
     function handleVisibilityChange() {
-      // If we lose focus during a transition, mobile will pause media. We re-sync on restore.
+      // Hidden tabs/apps should stop game audio immediately. The existing game
+      // pause behavior is retained so gameplay does not continue off-screen.
       if (document.hidden) {
+        browserFocused = false;
+        pauseBgMusicForFocusLoss();
         try { if (videoEl && isVideoPlaying) videoEl.pause(); } catch(e) {}
         if (isRunning) { try { isRunning = false; } catch(e) {} }
         return;
       }
 
-      // Restored focus: resume what should be running.
+      browserFocused = true;
+
+      // Restored focus: resume only what the current state permits.
       try {
         if (hasInitializedSession) { ensureBgMusicPlaying(); }
       } catch(e) {}
@@ -880,8 +908,25 @@ const init = document.getElementById('init-screen');
       } catch(e) {}
     }
 
+    function handleWindowBlur() {
+      browserFocused = false;
+      pauseBgMusicForFocusLoss();
+    }
 
-function toggleGameState() { if (isVideoPlaying || currentLevel === 0) return; isRunning = !isRunning; if (isRunning) ensureBgMusicPlaying(); }
+    function handleWindowFocus() {
+      browserFocused = true;
+      try {
+        if (hasInitializedSession) { ensureBgMusicPlaying(); }
+      } catch(e) {}
+    }
+
+
+function toggleGameState() {
+  if (isVideoPlaying || currentLevel === 0) return;
+  isRunning = !isRunning;
+  if (isRunning) ensureBgMusicPlaying();
+  else pauseBgMusicForFocusLoss();
+}
     function showAbout() {
       const main = document.getElementById('main-overlay');
       const about = document.getElementById('about-screen');
@@ -907,7 +952,18 @@ function toggleGameState() { if (isVideoPlaying || currentLevel === 0) return; i
       if (!el) return;
       // Longer technobabble ipsum for scroll testing
       el.textContent =
-`BRIEF:
+`
+HOW:
+Flick the ball of truth at the bitter pills of deception. Use paddle of reason to keep the ball of truth from falling to despair. Use the contour of the paddle to effect the ball rebound angle. Break through the lies to reach a higher plane.
+
+WHAT:
+PLAY -Normal game. (human design.)
+A.I. GEN -Curated A.I. generated levels.
+
+WHY:
+This game was created by Nathan Davies in conjunction with hella A.I. I provided the game design and art direction, the A.I. engines created artwork and code.
+
+BRIEF:
 A clinical arcade experiment observed through a graduated glass cylinder.
 You are the paddle; the ball is a probe; the bricks are a stubborn lattice.
 
@@ -915,12 +971,6 @@ NOTES:
 • Hydrodynamic parallax stable.  Bubbles remain nominal.
 • Impact signatures stored as red/white bloom artifacts.
 • Scoring is a lab instrument, not a moral compass.
-
-TECHNOBABBLE:
-The system operates at pseudo-nanoscale within a submerged vacuum-adjacent medium.
-Acoustic residue from impacts is routed through a minimal oscillator chain.
-Motion is discretized, then rehydrated at runtime using a constant-time integrator.
-Uncertainty is introduced only where it looks intentional.
 
 CALIBRATION LOG:
 — Re-seal chamber.
@@ -934,77 +984,8 @@ If the ball gets ambitious, let it.
 If the bricks disagree, keep going.
 If nothing makes sense, congratulations: the cylinder is working.
 
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
-END OF LINE.
 
 APPENDIX // DRIFT READOUT:
-— sample 001: viscosity checksum nominal; microbubbles coherent.
-— sample 002: viscosity checksum nominal; microbubbles coherent.
-— sample 003: viscosity checksum nominal; microbubbles coherent.
-— sample 004: viscosity checksum nominal; microbubbles coherent.
-— sample 005: viscosity checksum nominal; microbubbles coherent.
-— sample 006: viscosity checksum nominal; microbubbles coherent.
-— sample 007: viscosity checksum nominal; microbubbles coherent.
-— sample 008: viscosity checksum nominal; microbubbles coherent.
-— sample 009: viscosity checksum nominal; microbubbles coherent.
-— sample 010: viscosity checksum nominal; microbubbles coherent.
-— sample 011: viscosity checksum nominal; microbubbles coherent.
-— sample 012: viscosity checksum nominal; microbubbles coherent.
-— sample 013: viscosity checksum nominal; microbubbles coherent.
-— sample 014: viscosity checksum nominal; microbubbles coherent.
-— sample 015: viscosity checksum nominal; microbubbles coherent.
-— sample 016: viscosity checksum nominal; microbubbles coherent.
-— sample 017: viscosity checksum nominal; microbubbles coherent.
-— sample 018: viscosity checksum nominal; microbubbles coherent.
-— sample 019: viscosity checksum nominal; microbubbles coherent.
-— sample 020: viscosity checksum nominal; microbubbles coherent.
-— sample 021: viscosity checksum nominal; microbubbles coherent.
-— sample 022: viscosity checksum nominal; microbubbles coherent.
-— sample 023: viscosity checksum nominal; microbubbles coherent.
-— sample 024: viscosity checksum nominal; microbubbles coherent.
-— sample 025: viscosity checksum nominal; microbubbles coherent.
-— sample 026: viscosity checksum nominal; microbubbles coherent.
-— sample 027: viscosity checksum nominal; microbubbles coherent.
-— sample 028: viscosity checksum nominal; microbubbles coherent.
-— sample 029: viscosity checksum nominal; microbubbles coherent.
-— sample 030: viscosity checksum nominal; microbubbles coherent.
-— sample 031: viscosity checksum nominal; microbubbles coherent.
-— sample 032: viscosity checksum nominal; microbubbles coherent.
-— sample 033: viscosity checksum nominal; microbubbles coherent.
-— sample 034: viscosity checksum nominal; microbubbles coherent.
-— sample 035: viscosity checksum nominal; microbubbles coherent.
-— sample 036: viscosity checksum nominal; microbubbles coherent.
-— sample 037: viscosity checksum nominal; microbubbles coherent.
-— sample 038: viscosity checksum nominal; microbubbles coherent.
-— sample 039: viscosity checksum nominal; microbubbles coherent.
-— sample 040: viscosity checksum nominal; microbubbles coherent.
-— sample 041: viscosity checksum nominal; microbubbles coherent.
-— sample 042: viscosity checksum nominal; microbubbles coherent.
-— sample 043: viscosity checksum nominal; microbubbles coherent.
-— sample 044: viscosity checksum nominal; microbubbles coherent.
-— sample 045: viscosity checksum nominal; microbubbles coherent.
-— sample 046: viscosity checksum nominal; microbubbles coherent.
-— sample 047: viscosity checksum nominal; microbubbles coherent.
-— sample 048: viscosity checksum nominal; microbubbles coherent.
-— sample 049: viscosity checksum nominal; microbubbles coherent.
-— sample 050: viscosity checksum nominal; microbubbles coherent.
-— sample 051: viscosity checksum nominal; microbubbles coherent.
-— sample 052: viscosity checksum nominal; microbubbles coherent.
-— sample 053: viscosity checksum nominal; microbubbles coherent.
-— sample 054: viscosity checksum nominal; microbubbles coherent.
-— sample 055: viscosity checksum nominal; microbubbles coherent.
-— sample 056: viscosity checksum nominal; microbubbles coherent.
-— sample 057: viscosity checksum nominal; microbubbles coherent.
-— sample 058: viscosity checksum nominal; microbubbles coherent.
-— sample 059: viscosity checksum nominal; microbubbles coherent.
 — sample 060: viscosity checksum nominal; microbubbles coherent.
 `;
     }
@@ -1507,6 +1488,25 @@ function updateMenuBubbles() {
       });
     }
 
+    function handleGameSkip() {
+      // SKIP normally advances to the next level through the existing outro video.
+      // On the final level of PLAY or A.I. GEN, however, SKIP should still show
+      // the outro first and then return to the GAME OVER screen.
+      if (isVideoPlaying || currentLevel === 0) return;
+
+      const maxLv = getMaxLevelsForCurrentMode();
+      const isFinalPlayableLevel = (currentLevel > 0 && currentLevel <= 10 && currentLevel >= maxLv);
+
+      if (isFinalPlayableLevel) {
+        pendingSkipGameOverAfterOutro = true;
+        // Make sure the normal final-win pipelines do not intercept this SKIP path.
+        pendingGeminiWinAfterOutro = false;
+        pendingWinEndAfterShockwave = false;
+      }
+
+      transitionToVideo(false, false);
+    }
+
     function transitionToVideo(isIntro = false, noFade = false) {
       if (isVideoPlaying || !fader) return;
       fader.classList.remove('fast-fade');
@@ -1558,6 +1558,27 @@ function updateMenuBubbles() {
           return;
         }
 
+        // SKIP on the final PLAY/A.I. GEN level: finish the outro, then land on
+        // the normal GAME OVER screen rather than trying to advance a level.
+        if (pendingSkipGameOverAfterOutro) {
+          pendingSkipGameOverAfterOutro = false;
+          pendingGeminiWinAfterOutro = false;
+          pendingWinEndAfterShockwave = false;
+          fader.style.opacity = 0;
+          triggerGameOver(false);
+          return;
+        }
+
+        // The final A.I. GEN level uses the same outro transition as the other A.I. GEN levels.
+        // Once that outro finishes, explicitly land on the YOU WIN screen instead of trying
+        // to build a non-existent next level.
+        if (pendingGeminiWinAfterOutro && isGeminiMode) {
+          pendingGeminiWinAfterOutro = false;
+          fader.style.opacity = 0;
+          triggerGameOver(true);
+          return;
+        }
+
         currentLevel++;
 
         const maxLv = getMaxLevelsForCurrentMode();
@@ -1574,10 +1595,13 @@ function updateMenuBubbles() {
 
     function resetGame(mode) {
       isGeminiMode = (mode === 'gemini');
-      bgMusic.play().then(()=>{ try{ bgMusicEverStarted = true; }catch(e){} }).catch(e => {});
+      if (browserFocused) bgMusic.play().then(()=>{ try{ bgMusicEverStarted = true; }catch(e){} }).catch(e => {});
       if (loopId) cancelAnimationFrame(loopId);
 
       currentLevel = 0;
+      pendingGeminiWinAfterOutro = false;
+      pendingWinEndAfterShockwave = false;
+      pendingSkipGameOverAfterOutro = false;
       gamePhase = 'MENU'; levelIntro.active = false;
       lives = 3;
       score = 0;
@@ -1598,10 +1622,13 @@ function updateMenuBubbles() {
 
     function startGLevel(levelNum) {
       isGeminiMode = false;
-      bgMusic.play().then(()=>{ try{ bgMusicEverStarted = true; }catch(e){} }).catch(e => {});
+      if (browserFocused) bgMusic.play().then(()=>{ try{ bgMusicEverStarted = true; }catch(e){} }).catch(e => {});
       if (loopId) cancelAnimationFrame(loopId);
 
       currentLevel = 10 + levelNum;
+      pendingGeminiWinAfterOutro = false;
+      pendingWinEndAfterShockwave = false;
+      pendingSkipGameOverAfterOutro = false;
       lives = 3; score = 0; isVideoPlaying = false;
       ballTrail = []; particles = []; gameBubbles = [];
 
@@ -1695,6 +1722,9 @@ launchCueT = 0;
       gameOverDelayTimer = 0;
       ballDeathTimer = 0;
       isVideoPlaying = false;
+      pendingGeminiWinAfterOutro = false;
+      pendingWinEndAfterShockwave = false;
+      pendingSkipGameOverAfterOutro = false;
       try { if (!bgMusicEverStarted) { bgMusic.pause(); } // persistent music
  } catch(e) {}
 
@@ -2058,9 +2088,15 @@ isRunning = false;
           if (currentLevel < maxLv) {
             transitionToVideo(false, false);
           } else {
-            // Final level cleared: let the clear-shockwave finish before showing EndGame.
-            if (!scubaPurge.active) startScubaPurge();
-            pendingWinEndAfterShockwave = true;
+            // Final level cleared. A.I. GEN gets the outro animation first, then YOU WIN.
+            if (isGeminiMode) {
+              pendingGeminiWinAfterOutro = true;
+              transitionToVideo(false, false);
+            } else {
+              // Standard mode: let the clear-shockwave finish before showing EndGame.
+              if (!scubaPurge.active) startScubaPurge();
+              pendingWinEndAfterShockwave = true;
+            }
           }
         }
         return;
@@ -2072,16 +2108,38 @@ isRunning = false;
         return;
       }
 
-      // paddle (angle control, speed preserved by default)
-      if (ball.x > paddle.x && ball.x < paddle.x + paddle.w && ball.y > paddle.y && ball.y < paddle.y + paddle.h) {
+      // paddle (swept collision + ball-radius padding)
+      // The old test waited for the ball center to enter the paddle rectangle.
+      // At high speed that could let the ball tunnel through the paddle.
+      const BALL_RADIUS = 16;
+      const paddleTop = paddle.y - BALL_RADIUS;
+      const paddleLeft = paddle.x - BALL_RADIUS;
+      const paddleRight = paddle.x + paddle.w + BALL_RADIUS;
+      const crossedPaddleTop =
+        ball.vy > 0 &&
+        ball.py <= paddleTop &&
+        ball.y >= paddleTop;
+      const alreadyOverlappingPaddle =
+        ball.vy > 0 &&
+        ball.y >= paddleTop &&
+        ball.y <= paddle.y + paddle.h + BALL_RADIUS;
+
+      if ((crossedPaddleTop || alreadyOverlappingPaddle) &&
+          ball.x >= paddleLeft && ball.x <= paddleRight) {
+        // Snap the ball to the safe contact plane before reflecting it.
+        // This prevents penetration and also guarantees it cannot emerge below
+        // the paddle on the next frame.
+        ball.y = paddleTop;
+
         playSfx('paddle');
 
         const curSpeed = Math.hypot(ball.vx, ball.vy) || 0;
         const targetSpeed = Math.max(0.1, curSpeed + (PADDLE_SPEED_DELTA || 0));
 
-        // normalize hit position to [-1..1]
+        // Use the actual contact point, clamped to the paddle itself.
+        const contactX = Math.max(paddle.x, Math.min(paddle.x + paddle.w, ball.x));
         const paddleCenter = paddle.x + (paddle.w * 0.5);
-        const nx = (ball.x - paddleCenter) / (paddle.w * 0.5);
+        const nx = (contactX - paddleCenter) / (paddle.w * 0.5);
 
         // desired horizontal component (controls angle), NOT speed
         let vx = (nx * 10) + (paddle.vx * 0.4);
@@ -2101,7 +2159,9 @@ isRunning = false;
       // === BRICK COLLISION BEHAVIOR PATCH ===
       // B5 (type 4): normal bounce + brick explodes
       // B4 (type 3): brick explodes, ball passes through (no reflect, no slowdown)
+      let brickCollisionHandled = false;
       bricks.forEach(b => {
+        if (brickCollisionHandled) return;
         if (b.state === 'normal' && ball.x > (b.x - BRICK_COLLISION_PAD) && ball.x < (b.x + b.w + BRICK_COLLISION_PAD) && ball.y > (b.y - BRICK_COLLISION_PAD) && ball.y < (b.y + b.h + BRICK_COLLISION_PAD)) {
 
           if (b.type === 3) {
@@ -2125,6 +2185,10 @@ isRunning = false;
             b.state = 'breaking'; b.animFrame = 1; b.breakT = 0; score += BRICK_POINTS[b.type];
             createDebris(b.x + 45, b.y + 12); playSfx('brick');
           }
+          // Expanded collision boxes intentionally overlap. Only allow one solid
+          // brick to reverse the ball during a single frame, preventing rapid
+          // double-bounces when the ball is in a shared collision zone.
+          brickCollisionHandled = (b.type !== 3);
         }
       });
     }
@@ -2708,6 +2772,7 @@ ctx.globalAlpha = 1.0;
       resizeGame();
 
       window.addEventListener('touchstart', (e) => {
+        lastTouchInputT = performance.now();
         let rect = canvas.getBoundingClientRect();
         let tX = (e.touches[0].clientX - rect.left) / scale;
         let tY = (e.touches[0].clientY - rect.top) / scale;
@@ -2718,7 +2783,11 @@ ctx.globalAlpha = 1.0;
         if (isVideoPlaying && tY > 1000) { closeVideo(); return; }
 
         if (currentLevel > 0 && !isVideoPlaying) {
-          if (tY < 900) { toggleGameState(); return; }
+          // Pause control covers only the playfield: below the score/HUD and above the paddle.
+          // Do not let touches in the score area toggle the game state.
+          const PAUSE_ZONE_TOP = 64;
+          const PAUSE_ZONE_BOTTOM = paddle.y;
+          if (tY >= PAUSE_ZONE_TOP && tY < PAUSE_ZONE_BOTTOM) { toggleGameState(); return; }
           if (isRunning) {
             if (ball.state === "docked" && !shockwave.active && !ballSpawnFx.active && ballRenderAlpha >= 1.0) { launchCandidate = true; }
             paddle.off = tX - paddle.x;
@@ -2759,7 +2828,131 @@ ctx.globalAlpha = 1.0;
         }
       });
 
+      // === DESKTOP MOUSE CONTROLS ===
+      // Left-button drag controls the paddle and can launch the docked ball with
+      // the same short upward flick gesture used by touch. Plain mouse movement
+      // also tracks the paddle so desktop play does not require holding the button.
+      function getMouseGamePosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX - rect.left) / scale,
+          y: (e.clientY - rect.top) / scale
+        };
+      }
+
+      function movePaddleWithMouse(gameX) {
+        if (!isRunning || currentLevel === 0 || isVideoPlaying) return;
+        // Mouse control is desktop-only and stays inside the game's 720px playfield.
+        paddle.x = Math.max(0, Math.min(720 - paddle.w, gameX - paddle.off));
+      }
+
+      function isMouseOverCanvas(e) {
+        const rect = canvas.getBoundingClientRect();
+        return (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom);
+      }
+
+      function launchBallFromMouseClick() {
+        // Mouse launch is deliberately different from touch: one click on the
+        // paddle launches immediately. The paddle's current horizontal velocity
+        // is converted into the same flick-angle math used by touch, so the
+        // existing damping/clamping parameters remain in control.
+        const velocity = Math.max(-6, Math.min(6, paddle.vx || 0));
+        const mouseFlickDX = velocity * 2.5;
+        const mouseFlickDY = FLICK_MIN_DY; // -22: same upward reference used by touch
+        launchBallFromDock(mouseFlickDX, mouseFlickDY);
+      }
+
+      window.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (!canvas) return;
+
+        // Ignore the synthetic mouse event that some browsers emit after touch.
+        if (performance.now() - lastTouchInputT < 500) return;
+
+        // Menu/end-screen clicks bubble to window; only gameplay canvas clicks
+        // should be interpreted as paddle/mouse input.
+        if (!isVideoPlaying && (e.target !== canvas || !isMouseOverCanvas(e))) return;
+
+        const p = getMouseGamePosition(e);
+        mouseDown = true;
+        mouseStartX = p.x;
+        mouseStartY = p.y;
+        mouseStartT = performance.now();
+        mouseLaunchCandidate = false;
+
+        if (isVideoPlaying && p.y > 1000) {
+          closeVideo();
+          mouseDown = false;
+          return;
+        }
+
+        if (currentLevel > 0 && !isVideoPlaying) {
+          // Match the touch pause zone: score/HUD stays outside the toggle area.
+          const PAUSE_ZONE_TOP = 64;
+          const PAUSE_ZONE_BOTTOM = paddle.y;
+          if (p.y >= PAUSE_ZONE_TOP && p.y < PAUSE_ZONE_BOTTOM) {
+            toggleGameState();
+            mouseDown = false;
+            return;
+          }
+
+          if (isRunning) {
+            // Keep normal mouse paddle movement behavior.
+            paddle.off = p.x - paddle.x;
+            movePaddleWithMouse(p.x);
+
+            // Desktop launch rule: a single left-click directly on the paddle
+            // launches the docked ball. No mouse flick gesture is required.
+            const onPaddle = (p.x >= paddle.x && p.x <= paddle.x + paddle.w &&
+                              p.y >= paddle.y && p.y <= paddle.y + paddle.h);
+            if (onPaddle &&
+                ball.state === "docked" &&
+                !shockwave.active &&
+                !ballSpawnFx.active &&
+                ballRenderAlpha >= 1.0) {
+              launchBallFromMouseClick();
+              mouseDown = false;
+              mouseLaunchCandidate = false;
+              return;
+            }
+          }
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!canvas) return;
+        if (performance.now() - lastTouchInputT < 500) return;
+        if (!isRunning || currentLevel === 0 || isVideoPlaying) return;
+        if (!isMouseOverCanvas(e)) return;
+
+        const p = getMouseGamePosition(e);
+
+        // Always track the paddle with the mouse during desktop gameplay.
+        // While dragging, preserve the grab offset established on mousedown.
+        if (!mouseDown) {
+          paddle.off = paddle.w * 0.5;
+        }
+        movePaddleWithMouse(p.x);
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (e.button !== 0) return;
+        if (!mouseDown) return;
+
+        mouseDown = false;
+        mouseLaunchCandidate = false;
+      });
+
+      window.addEventListener('mouseleave', () => {
+        // Release a drag if the pointer leaves the browser window before mouseup.
+        mouseDown = false;
+        mouseLaunchCandidate = false;
+      });
+
       document.addEventListener("visibilitychange", handleVisibilityChange);
+      window.addEventListener("blur", handleWindowBlur);
+      window.addEventListener("focus", handleWindowFocus);
 
       loop();
     });
@@ -2777,7 +2970,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v299 — preloading assets + unlocking audio</div>
+        <div id="init-hint">BUILD v314 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
@@ -2802,17 +2995,17 @@ ctx.globalAlpha = 1.0;
       <div class="about-inner">
         <div class="about-textbox">
           <div id="about-scroll" class="about-scroll">
-            <div class="about-title">Brick ShiftOut // Field Notes</div>
+            <div class="about-title">// Field Notes</div>
             <div id="about-body" class="about-body"></div>
           </div>
         </div>
 
         <div class="about-keyset" id="about-keyset">
           <div class="key-row"><canvas class="keyset-sprite" data-brick="0" width="45" height="12"></canvas><div class="key-desc">B1 — Standard brick; reflects the ball.</div></div>
-          <div class="key-row"><canvas class="keyset-sprite" data-brick="1" width="45" height="12"></canvas><div class="key-desc">B2 — Tough brick; takes extra hits.</div></div>
-          <div class="key-row"><canvas class="keyset-sprite" data-brick="2" width="45" height="12"></canvas><div class="key-desc">B3 — High-value brick; bigger score pop.</div></div>
+          <div class="key-row"><canvas class="keyset-sprite" data-brick="1" width="45" height="12"></canvas><div class="key-desc">B2 — Standard Brick w/ Attitude.</div></div>
+          <div class="key-row"><canvas class="keyset-sprite" data-brick="2" width="45" height="12"></canvas><div class="key-desc">B3 — 2x Tough Brick.</div></div>
           <div class="key-row"><canvas class="keyset-sprite" data-brick="3" width="45" height="12"></canvas><div class="key-desc">B4 — Phase brick; ball passes through.</div></div>
-          <div class="key-row"><canvas class="keyset-sprite" data-brick="4" width="45" height="12"></canvas><div class="key-desc">B5 — Heavy brick; normal bounce, big presence.</div></div>
+          <div class="key-row"><canvas class="keyset-sprite" data-brick="4" width="45" height="12"></canvas><div class="key-desc">B5 — Indestructable Brick.</div></div>
         </div>
       </div>
     </div>
@@ -2829,7 +3022,7 @@ ctx.globalAlpha = 1.0;
   </div>
 
   <div id="fader"></div>
-  <button id="game-skip" class="util-btn" onclick="transitionToVideo(false,false)">SKIP</button>
+  <button id="game-skip" class="util-btn" onclick="handleGameSkip()">SKIP</button>
   <div id="video-container"><video id="adh-video" playsinline preload="auto"></video></div>
   <canvas id="gameCanvas" width="720" height="1280"></canvas>
   <canvas id="fxTopCanvas" width="720" height="1280"></canvas>
