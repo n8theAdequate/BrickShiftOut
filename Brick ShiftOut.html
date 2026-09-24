@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v321</title>
+  <title>Brick ShiftOut v327</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -1263,20 +1263,30 @@ function updateMenuBubbles() {
         kO.connect(kG); kG.connect(audioCtx.destination);
         kO.start(now); kO.stop(now + 0.15);
       } else if (type === 'brick') {
+        // Brick hit: keep the low thump, but tame the bright/high-frequency edge.
         const bO = audioCtx.createOscillator(); const bG = audioCtx.createGain();
-        bO.frequency.setValueAtTime(120, now);
-        bG.gain.setValueAtTime(0.3, now);
-        bG.gain.linearRampToValueAtTime(0, now + 0.4);
-        bO.connect(bG); bG.connect(audioCtx.destination);
+        const bF = audioCtx.createBiquadFilter();
+        bO.frequency.setValueAtTime(155, now);
+        bO.frequency.exponentialRampToValueAtTime(58, now + 0.4);
+        bG.gain.setValueAtTime(0.95, now);
+        bG.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        bF.type = 'lowpass';
+        bF.frequency.setValueAtTime(1800, now);
+        bF.Q.setValueAtTime(0.7, now);
+        bO.connect(bG); bG.connect(bF); bF.connect(audioCtx.destination);
         bO.start(now); bO.stop(now + 0.4);
         for(let i=0; i<4; i++) {
           let t = now + (i * 0.03);
-          let f = 2000 + (Math.random() * 1500);
+          let f = 1400 + (Math.random() * 900);
           const gO = audioCtx.createOscillator(); const gG = audioCtx.createGain();
+          const gF = audioCtx.createBiquadFilter();
           gO.frequency.setValueAtTime(f, t);
-          gG.gain.setValueAtTime(0.03, t);
+          gG.gain.setValueAtTime(0.05, t);
           gG.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-          gO.connect(gG); gG.connect(audioCtx.destination);
+          gF.type = 'lowpass';
+          gF.frequency.setValueAtTime(2400, t);
+          gF.Q.setValueAtTime(0.65, t);
+          gO.connect(gG); gG.connect(gF); gF.connect(audioCtx.destination);
           gO.start(t); gO.stop(t + 0.1);
         }
         const noise = audioCtx.createBufferSource();
@@ -1285,9 +1295,13 @@ function updateMenuBubbles() {
         for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
         noise.buffer = buffer;
         const fG = audioCtx.createGain();
-        fG.gain.setValueAtTime(0.2, now);
+        const nF = audioCtx.createBiquadFilter();
+        fG.gain.setValueAtTime(0.42, now);
         fG.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-        noise.connect(fG); fG.connect(audioCtx.destination);
+        nF.type = 'lowpass';
+        nF.frequency.setValueAtTime(2200, now);
+        nF.Q.setValueAtTime(0.7, now);
+        noise.connect(fG); fG.connect(nF); nF.connect(audioCtx.destination);
         noise.start(now);
       }
     }
@@ -2606,16 +2620,16 @@ if (currentLevel === 0) {
         const a = 1 - (p.age / p.life);
         const alpha = Math.max(0, Math.min(1, a));
 
-        // filled bubble body (white @ 50% peak, fades with life)
+        // Scuba Purge bubble body: 8% opacity, fading with life.
         fxTopCtx.beginPath();
-        fxTopCtx.fillStyle = "rgba(195, 204, 206," + (0.25 * alpha).toFixed(4) + ")";
+        fxTopCtx.fillStyle = "rgba(195, 204, 206," + (0.08 * alpha).toFixed(4) + ")";
         fxTopCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         fxTopCtx.fill();
 
-        // subtle outer edge (keeps it readable over UI)
+        // Crisp white 2px outline at 16% opacity, fading with life.
         fxTopCtx.beginPath();
-        fxTopCtx.lineWidth = 1.5;
-        fxTopCtx.strokeStyle = "rgba(195, 204, 206," + (0.09 * alpha).toFixed(4) + ")";
+        fxTopCtx.lineWidth = 2;
+        fxTopCtx.strokeStyle = "rgba(255, 255, 255," + (0.16 * alpha).toFixed(4) + ")";
         fxTopCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         fxTopCtx.stroke();
 
@@ -3268,7 +3282,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v321 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v327 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
@@ -3277,8 +3291,8 @@ ctx.globalAlpha = 1.0;
       <button class="game-btn btn-BA thin-btn flush-right" style="transform: translateY(50px);" onclick="showAbout()">ABOUT</button>
     </div>
 
-    <button class="game-btn btn-BA" style="transform: translateY(-50px);" onclick="resetGame('standard')">PLAY</button>
-    <button class="game-btn btn-BB" style="transform: translateY(-50px);" onclick="resetGame('gemini')">A.I.GEN</button>
+    <button class="game-btn btn-BA" style="transform: translateY(-50px);" onclick="resetGame('standard')">PLAY /GEN HUMAN</button>
+    <button class="game-btn btn-BB" style="transform: translateY(-50px);" onclick="resetGame('gemini')">PLAY /GEN A.I.</button>
   </div>
 
   <div id="about-screen" class="overlay">
