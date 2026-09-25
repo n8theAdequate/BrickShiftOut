@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v328</title>
+  <title>Brick ShiftOut v331</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -42,7 +42,7 @@
     .flush-right { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
 
     .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; z-index: 500; text-align: center; background-size: cover; background-position: center; padding-bottom: 8%; }
-    #end-screen { display: none; z-index: 700; background-image: url('GameOver.jpg'); }
+    #end-screen { display: none; z-index: 700; width: min(100vw, 56.25vh); height: min(100vh, 177.7777778vw); left: 50%; top: 50%; transform: translate(-50%, -50%); background-image: url('GameOver.jpg'); background-size: cover; background-position: center; }
     #about-screen { display: none; z-index: 700; justify-content: center; padding-bottom: 5%; }
 
     .about-container { position: relative; width: 90%; height: 75%; background: rgb(21, 23, 24); border-radius: 8px; margin-bottom: 20px; padding: 20px 0; display: flex; justify-content: center; align-items: center; overflow: hidden; border: 1px solid rgb(117, 125, 128); box-shadow: 0 0 15px rgba(0,0,0,0.8); }
@@ -474,6 +474,7 @@ function killScubaPurgeFx() {
     const BALL_DOCK_Y_OFF = 8;
     // Ball spawn visual cue: ring collapses into the ball, then ball becomes fully opaque.
     var ballSpawnFx = { active: false, t: 0, dur: 22, r0: 120 }; // dur in 60fps units (~0.37s)
+    var firstLevelLaunchHint = { active: false, shown: false, fading: false, alpha: 0, t: 0, fadeDur: 18 };
     var ballRenderAlpha = 1.0;
  
 
@@ -1732,6 +1733,15 @@ function updateMenuBubbles() {
       ball.state = "docked";
       ball.x = paddle.x + (paddle.w / 2);
       ball.y = paddle.y - BALL_DOCK_Y_OFF;
+
+      // First-level launch instruction: show only on the very first ball spawn.
+      if ((currentLevel === 1 || currentLevel === 11) && !firstLevelLaunchHint.shown) {
+        firstLevelLaunchHint.shown = true;
+        firstLevelLaunchHint.active = true;
+        firstLevelLaunchHint.fading = false;
+        firstLevelLaunchHint.alpha = 1;
+        firstLevelLaunchHint.t = 0;
+      }
          
       launchCueT = 0;
 startBallSpawnFx();
@@ -1746,15 +1756,30 @@ startBallSpawnFx();
     }
 
     function updateBallSpawnFx() {
-      if (!ballSpawnFx.active) return;
-      ballSpawnFx.t += dtSim;
-      if (ballSpawnFx.t >= ballSpawnFx.dur) {
-        ballSpawnFx.active = false;
-        ballRenderAlpha = 1.0;
+      if (ballSpawnFx.active) {
+        ballSpawnFx.t += dtSim;
+        if (ballSpawnFx.t >= ballSpawnFx.dur) {
+          ballSpawnFx.active = false;
+          ballRenderAlpha = 1.0;
+        }
+      }
+
+      if (firstLevelLaunchHint.active && firstLevelLaunchHint.fading) {
+        firstLevelLaunchHint.t += dtSim;
+        firstLevelLaunchHint.alpha = Math.max(0, 1 - (firstLevelLaunchHint.t / firstLevelLaunchHint.fadeDur));
+        if (firstLevelLaunchHint.alpha <= 0) {
+          firstLevelLaunchHint.active = false;
+          firstLevelLaunchHint.fading = false;
+          firstLevelLaunchHint.alpha = 0;
+        }
       }
     }
 function launchBallFromDock(flickDX = 0, flickDY = -1) {
   // Upward flick launch with direction influence (clamped + damped)
+  if (firstLevelLaunchHint.active) {
+    firstLevelLaunchHint.fading = true;
+    firstLevelLaunchHint.t = 0;
+  }
   ball.state = "launched";
   ball.active = true;
 
@@ -1867,6 +1892,13 @@ isRunning = false;
 
     function resetLevel(newLayout) {
       // Level reset: keep visuals/FX clean, but DO NOT force-reset paddle once play has begun.
+      if (currentLevel === 1 || currentLevel === 11) {
+        firstLevelLaunchHint.active = false;
+        firstLevelLaunchHint.shown = false;
+        firstLevelLaunchHint.fading = false;
+        firstLevelLaunchHint.alpha = 0;
+        firstLevelLaunchHint.t = 0;
+      }
       ball.active = false; ball.state = "hidden"; ballDeathTimer = 0; ballTrail = [];
       shockwave.active = false; deathWave.active = false; gameOverPending = false; gameOverDelayTimer = 0;
 
@@ -2924,6 +2956,18 @@ if (currentLevel === 0) {
       ctx.drawImage(spriteSheet, 740, 4, 200, 20, paddle.x, paddle.y, 200, 20);
       ctx.drawImage(spriteSheet, 740, 40, 200, 64, paddle.x, paddle.y + 20, 200, 64);
 
+      // First-level launch instruction. It appears only on the first ball spawn
+      // of each game mode and quickly fades once the ball is launched.
+      if (firstLevelLaunchHint.active && firstLevelLaunchHint.alpha > 0) {
+        ctx.save();
+        ctx.globalAlpha = firstLevelLaunchHint.alpha * 0.5;
+        ctx.font = "900 18px 'Arial Black', sans-serif";
+        ctx.fillStyle = COLOR_WHITE;
+        ctx.textAlign = "center";
+        ctx.fillText("FLICK UP TO LAUNCH BALL", 360, paddle.y - 58);
+        ctx.restore();
+      }
+
       // Flick-to-launch cue (only visible while ball is docked)
 
 drawLaunchCue();
@@ -3288,7 +3332,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v328 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v331 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
