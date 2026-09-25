@@ -430,7 +430,7 @@ function getBrickIntroDrawState(b) {
     var browserFocused = true;
     var bgMusicEverStarted = false; // once true, never intentionally pause music
     var canvas, ctx, endBubblesCanvas, endBubblesCtx, fxTopCanvas, fxTopCtx, scale = 1, isRunning = false, loopId = null, globalBkg = new Image(), startScreenBkg = new Image();
-    startScreenBkg.src = 'StartScreen.jpg';
+    startScreenBkg.src = 'StartScreen Alt.jpg';
     var hasInitializedSession = false;
     var initState = { active: false, started: false, p: 0, minMs: 2000, t0: 0, done: false, revealed: false, ready: false, audioUnlocked: false, audioStarted: false, audioStartPending: false };
 
@@ -827,7 +827,7 @@ function pauseBgMusicForFocusLoss() {
   // Preload critical assets + JSON (deterministic, cached)
   const tasks = [
     preloadImage('BrickShiftoutsSprites.png'),
-    preloadImage('StartScreen.jpg'),
+    preloadImage('StartScreen Alt.jpg'),
     preloadImage('GameOver.jpg'),
     preloadImage('EndScreen.jpg'),
     preloadImage('gBKG lv1.jpg'),
