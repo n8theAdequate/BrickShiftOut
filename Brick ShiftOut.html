@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v349</title>
+  <title>Brick ShiftOut v350</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -76,6 +76,21 @@
       font-size: 18px !important;
       letter-spacing: 2px;
       box-sizing: border-box;
+    }
+    #pause-continue-hint {
+      margin-top: 6px;
+      width: 290px;
+      font-family: "Arial Black", sans-serif;
+      font-weight: 900;
+      font-size: 14px;
+      line-height: 1.2;
+      letter-spacing: 2px;
+      color: rgba(195, 204, 206, 0.25);
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+      text-align: center;
+      text-transform: uppercase;
+      user-select: none;
+      pointer-events: none;
     }
     .flush-left { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: none !important; }
     .flush-right { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
@@ -708,7 +723,7 @@ function killScubaPurgeFx() {
       // positions and scale remain consistent on every window/device size.
       const mainMenuButtons = [
         [document.getElementById('main-human-btn'), 790.4],
-        [document.getElementById('main-ai-btn'), 882.4],
+        [document.getElementById('main-ai-btn'), 892.4],
         [document.getElementById('main-about-btn'), null]
       ];
       mainMenuButtons.forEach(function(entry) {
@@ -1112,6 +1127,12 @@ function updatePauseControls() {
   pc.style.display = show ? 'flex' : 'none';
   const pauseVol = document.getElementById('pause-volume-toggle');
   if (pauseVol) pauseVol.style.display = show ? 'block' : 'none';
+}
+
+// Keep pause-menu controls above the large canvas pause hit zone.
+// Touches/clicks on these controls must not bubble to the canvas/window pause handler.
+function stopPauseControlPropagation(e) {
+  e.stopPropagation();
 }
 
 function toggleGameState() {
@@ -3504,6 +3525,15 @@ ctx.globalAlpha = 1.0;
       window.addEventListener("blur", handleWindowBlur);
       window.addEventListener("focus", handleWindowFocus);
 
+      const pauseControlsEl = document.getElementById('pause-controls');
+      const pauseVolumeEl = document.getElementById('pause-volume-toggle');
+      [pauseControlsEl, pauseVolumeEl].forEach(function(el) {
+        if (!el) return;
+        el.addEventListener('touchstart', stopPauseControlPropagation, true);
+        el.addEventListener('pointerdown', stopPauseControlPropagation, true);
+        el.addEventListener('click', stopPauseControlPropagation, true);
+      });
+
       loop();
     });
   </script>
@@ -3520,7 +3550,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v349 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v350 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
@@ -3536,6 +3566,7 @@ ctx.globalAlpha = 1.0;
   <div id="pause-controls" aria-label="Pause menu">
     <button class="game-btn btn-BB pause-menu-btn" onclick="showAbout('pause')">ABOUT</button>
     <button class="game-btn btn-BA pause-menu-btn" onclick="quitGameToGameOver()">QUIT GAME</button>
+    <div id="pause-continue-hint">TOUCH ANYWHERE TO CONTINUE</div>
   </div>
   <button id="pause-volume-toggle" type="button" onclick="toggleAudio()" aria-label="Turn volume off" aria-pressed="true" style="display:none;">
     <img alt="Volume On" src="Vol_On.png">
