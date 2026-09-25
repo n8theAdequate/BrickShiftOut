@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v350</title>
+  <title>Brick ShiftOut v351</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -3525,14 +3525,24 @@ ctx.globalAlpha = 1.0;
       window.addEventListener("blur", handleWindowBlur);
       window.addEventListener("focus", handleWindowFocus);
 
-      const pauseControlsEl = document.getElementById('pause-controls');
-      const pauseVolumeEl = document.getElementById('pause-volume-toggle');
-      [pauseControlsEl, pauseVolumeEl].forEach(function(el) {
-        if (!el) return;
-        el.addEventListener('touchstart', stopPauseControlPropagation, true);
-        el.addEventListener('pointerdown', stopPauseControlPropagation, true);
-        el.addEventListener('click', stopPauseControlPropagation, true);
-      });
+      function installPauseControlGuards() {
+        const pauseControlsEl = document.getElementById('pause-controls');
+        const pauseVolumeEl = document.getElementById('pause-volume-toggle');
+        [pauseControlsEl, pauseVolumeEl].forEach(function(el) {
+          if (!el || el.dataset.pauseGuardInstalled === '1') return;
+          el.dataset.pauseGuardInstalled = '1';
+          // Bubble after the button's own handler has run, then stop the
+          // event from reaching the window/canvas pause toggle.
+          el.addEventListener('touchstart', stopPauseControlPropagation);
+          el.addEventListener('pointerdown', stopPauseControlPropagation);
+          el.addEventListener('click', stopPauseControlPropagation);
+        });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', installPauseControlGuards, { once: true });
+      } else {
+        installPauseControlGuards();
+      }
 
       loop();
     });
@@ -3550,7 +3560,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v350 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v351 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
