@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v344</title>
+  <title>Brick ShiftOut v345</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -715,7 +715,7 @@ function killScubaPurgeFx() {
         if (!btn) return;
         btn.style.left = (canvasRect.left + (360 * scale)) + 'px';
         btn.style.top = (canvasRect.top + (logicalY * scale)) + 'px';
-        btn.style.width = (300 * scale) + 'px';
+        btn.style.width = '300px';
         btn.style.transform = 'translateX(-50%) scale(' + scale + ')';
       });
 
@@ -3514,7 +3514,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v339 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v345 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
