@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v327</title>
+  <title>Brick ShiftOut v328</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -36,7 +36,7 @@
     .adh-img-btn img { width: 100%; height: auto; display: block; }
 
     .side-col-left { position: absolute; left: 0; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
-    .side-col-right { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
+    .side-col-right { position: absolute; right: max(10px, calc(50% - 350px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
     .thin-btn { width: 90px !important; padding: 8px 5px !important; font-size: 16px !important; margin: 6px 0 !important; }
     .flush-left { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: none !important; }
     .flush-right { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
@@ -163,7 +163,7 @@
     }
     #init-left {
       position: absolute;
-      left: 20px; /* includes the +10px nudge */
+      left: max(10px, calc(50% - 350px)); /* 10px inside the 720px-wide BKG artwork */
       top: 50%;
       transform: translateY(-50%);
       display: flex;
@@ -3288,13 +3288,13 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v327 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v328 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
   <div id="main-overlay" class="overlay" style="display:none;">
     <div class="side-col-right">
-      <button class="game-btn btn-BA thin-btn flush-right" style="transform: translateY(50px);" onclick="showAbout()">ABOUT</button>
+      <button class="game-btn btn-BA thin-btn" style="transform: translateY(50px);" onclick="showAbout()">ABOUT</button>
     </div>
 
     <button class="game-btn btn-BA" style="transform: translateY(-50px);" onclick="resetGame('standard')">PLAY /GEN HUMAN</button>
