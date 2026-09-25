@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v343</title>
+  <title>Brick ShiftOut v344</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -38,13 +38,9 @@
     .side-col-left { position: absolute; left: 0; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
     #main-human-btn, #main-ai-btn, #main-about-btn {
       position: absolute;
-      left: calc(50% + 5px);
-      transform: translateX(-50%);
       margin: 0;
+      transform-origin: center top;
     }
-    #main-human-btn { top: calc(52% + 125px); }
-    #main-ai-btn { top: calc(52% + 187px); }
-    #main-about-btn { top: 947px; }
     .side-col-right { position: absolute; right: max(10px, calc(50% - 350px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; }
     .thin-btn { width: 90px !important; padding: 8px 5px !important; font-size: 16px !important; margin: 6px 0 !important; }
     #volume-toggle, #pause-volume-toggle {
@@ -705,8 +701,25 @@ function killScubaPurgeFx() {
       if (fxTopCanvas) { fxTopCanvas.style.width = fw + "px"; fxTopCanvas.style.height = (fw/r) + "px"; }
       scale = fw / 720;
 
-      const volumeButtons = [document.getElementById('volume-toggle'), document.getElementById('pause-volume-toggle')];
       const canvasRect = canvas.getBoundingClientRect();
+
+      // Keep Main Menu buttons locked to the 720x1280 game frame so their
+      // positions and scale remain consistent on every window/device size.
+      const mainMenuButtons = [
+        [document.getElementById('main-human-btn'), 790.4],
+        [document.getElementById('main-ai-btn'), 852.4],
+        [document.getElementById('main-about-btn'), 947]
+      ];
+      mainMenuButtons.forEach(function(entry) {
+        const btn = entry[0], logicalY = entry[1];
+        if (!btn) return;
+        btn.style.left = (canvasRect.left + (360 * scale)) + 'px';
+        btn.style.top = (canvasRect.top + (logicalY * scale)) + 'px';
+        btn.style.width = (300 * scale) + 'px';
+        btn.style.transform = 'translateX(-50%) scale(' + scale + ')';
+      });
+
+      const volumeButtons = [document.getElementById('volume-toggle'), document.getElementById('pause-volume-toggle')];
       volumeButtons.forEach(function(volumeBtn) {
         if (!volumeBtn) return;
         volumeBtn.style.left = (canvasRect.left + (18 * scale)) + 'px';
@@ -723,7 +736,7 @@ function killScubaPurgeFx() {
       const pauseControls = document.getElementById('pause-controls');
       if (pauseControls) {
         const canvasRect = canvas.getBoundingClientRect();
-        pauseControls.style.left = (canvasRect.left + ((360 - 150 - 20) * scale)) + 'px';
+        pauseControls.style.left = (canvasRect.left + (210 * scale)) + 'px';
         pauseControls.style.top = (canvasRect.top + (625 * scale)) + 'px';
         pauseControls.style.width = '300px';
         pauseControls.style.transformOrigin = 'top center';
