@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v345</title>
+  <title>Brick ShiftOut v346</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -70,11 +70,12 @@
     }
     #pause-controls .pause-menu-btn {
       width: 300px !important;
-      min-height: 42px;
+      min-height: 0;
       margin: 0 !important;
       padding: 10px 30px !important;
       font-size: 18px !important;
       letter-spacing: 2px;
+      box-sizing: border-box;
     }
     .flush-left { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: none !important; }
     .flush-right { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
@@ -713,16 +714,16 @@ function killScubaPurgeFx() {
       mainMenuButtons.forEach(function(entry) {
         const btn = entry[0], logicalY = entry[1];
         if (!btn) return;
-        btn.style.left = (canvasRect.left + (360 * scale)) + 'px';
+        btn.style.left = (canvasRect.left + (360 * scale) - 150) + 'px';
         btn.style.top = (canvasRect.top + (logicalY * scale)) + 'px';
         btn.style.width = '300px';
-        btn.style.transform = 'translateX(-50%) scale(' + scale + ')';
+        btn.style.transform = 'none';
       });
 
       const volumeButtons = [document.getElementById('volume-toggle'), document.getElementById('pause-volume-toggle')];
       volumeButtons.forEach(function(volumeBtn) {
         if (!volumeBtn) return;
-        volumeBtn.style.left = (canvasRect.left + (18 * scale)) + 'px';
+        volumeBtn.style.left = (canvasRect.left + (630 * scale)) + 'px';
         volumeBtn.style.top = (canvasRect.top + (1078 * scale)) + 'px';
         volumeBtn.style.width = (72 * scale) + 'px';
         volumeBtn.style.height = (72 * scale) + 'px';
@@ -736,11 +737,11 @@ function killScubaPurgeFx() {
       const pauseControls = document.getElementById('pause-controls');
       if (pauseControls) {
         const canvasRect = canvas.getBoundingClientRect();
-        pauseControls.style.left = (canvasRect.left + (210 * scale)) + 'px';
+        pauseControls.style.left = (canvasRect.left + (360 * scale) - 150) + 'px';
         pauseControls.style.top = (canvasRect.top + (625 * scale)) + 'px';
         pauseControls.style.width = '300px';
-        pauseControls.style.transformOrigin = 'top center';
-        pauseControls.style.transform = 'scale(' + scale + ')';
+        pauseControls.style.transformOrigin = 'top left';
+        pauseControls.style.transform = 'none';
       }
 
       const skipBtn = document.getElementById('game-skip');
@@ -3514,7 +3515,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v345 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v346 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
