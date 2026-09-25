@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v348</title>
+  <title>Brick ShiftOut v349</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -708,7 +708,7 @@ function killScubaPurgeFx() {
       // positions and scale remain consistent on every window/device size.
       const mainMenuButtons = [
         [document.getElementById('main-human-btn'), 790.4],
-        [document.getElementById('main-ai-btn'), 872.4],
+        [document.getElementById('main-ai-btn'), 882.4],
         [document.getElementById('main-about-btn'), null]
       ];
       mainMenuButtons.forEach(function(entry) {
@@ -729,7 +729,7 @@ function killScubaPurgeFx() {
       volumeButtons.forEach(function(volumeBtn) {
         if (!volumeBtn) return;
         volumeBtn.style.left = (canvasRect.left + (630 * scale)) + 'px';
-        volumeBtn.style.top = (canvasRect.top + (1078 * scale)) + 'px';
+        volumeBtn.style.top = (canvasRect.top + (604 * scale)) + 'px';
         volumeBtn.style.width = (72 * scale) + 'px';
         volumeBtn.style.height = (72 * scale) + 'px';
         const volumeImg = volumeBtn.querySelector('img');
@@ -3520,7 +3520,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v348 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v349 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
