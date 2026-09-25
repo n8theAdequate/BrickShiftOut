@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Brick ShiftOut v346</title>
+  <title>Brick ShiftOut v348</title>
   <style>
     * { touch-action: none; -webkit-text-size-adjust: none; box-sizing: border-box; }
     html, body { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; position: fixed; }
@@ -15,7 +15,7 @@
     #fader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; opacity: 0; transition: opacity 1.0s; pointer-events: none; z-index: 6000; }
     .fast-fade { transition: opacity 0.5s !important; }
 
-    .game-btn { padding: 10px 30px; font-size: 18px; font-weight: 900; font-family: "Arial Black", sans-serif; border-radius: 4px; cursor: pointer; margin: 10px; width: 300px; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
+    .game-btn { padding: 10px 30px; font-size: 18px; font-weight: 900; font-family: "Arial Black", sans-serif; border-radius: 4px; cursor: pointer; margin: 10px; width: 290px; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
     .btn-BA { background: rgba(177, 41, 26, 0.4) !important; color: rgb(195, 204, 206) !important; border: 3px solid rgb(177, 41, 26) !important; box-shadow: 0 0 15px rgb(177, 41, 26), inset 0 0 10px rgba(177, 41, 26, 0.3) !important; text-shadow: 0 0 8px rgb(195, 204, 206) !important; }
     .btn-BB { background: rgb(21, 23, 24) !important; color: rgb(195, 204, 206) !important; border: 3px solid rgb(117, 125, 128) !important; box-shadow: 0 0 15px rgba(117, 125, 128, 0.5) !important; text-shadow: 0 0 8px rgb(195, 204, 206) !important; }
 
@@ -69,7 +69,7 @@
       pointer-events: auto;
     }
     #pause-controls .pause-menu-btn {
-      width: 300px !important;
+      width: 290px !important;
       min-height: 0;
       margin: 0 !important;
       padding: 10px 30px !important;
@@ -708,16 +708,21 @@ function killScubaPurgeFx() {
       // positions and scale remain consistent on every window/device size.
       const mainMenuButtons = [
         [document.getElementById('main-human-btn'), 790.4],
-        [document.getElementById('main-ai-btn'), 852.4],
-        [document.getElementById('main-about-btn'), 947]
+        [document.getElementById('main-ai-btn'), 872.4],
+        [document.getElementById('main-about-btn'), null]
       ];
       mainMenuButtons.forEach(function(entry) {
         const btn = entry[0], logicalY = entry[1];
         if (!btn) return;
-        btn.style.left = (canvasRect.left + (360 * scale) - 150) + 'px';
-        btn.style.top = (canvasRect.top + (logicalY * scale)) + 'px';
-        btn.style.width = '300px';
-        btn.style.transform = 'none';
+        btn.style.left = '50%';
+        if (logicalY === null) {
+          const volumeCenterY = (1078 + 36) * scale;
+          btn.style.top = (canvasRect.top + volumeCenterY - ((btn.offsetHeight * scale) / 2)) + 'px';
+        } else {
+          btn.style.top = (canvasRect.top + (logicalY * scale)) + 'px';
+        }
+        btn.style.width = '290px';
+        btn.style.transform = 'translateX(-50%)';
       });
 
       const volumeButtons = [document.getElementById('volume-toggle'), document.getElementById('pause-volume-toggle')];
@@ -737,11 +742,11 @@ function killScubaPurgeFx() {
       const pauseControls = document.getElementById('pause-controls');
       if (pauseControls) {
         const canvasRect = canvas.getBoundingClientRect();
-        pauseControls.style.left = (canvasRect.left + (360 * scale) - 150) + 'px';
+        pauseControls.style.left = '50%';
         pauseControls.style.top = (canvasRect.top + (625 * scale)) + 'px';
-        pauseControls.style.width = '300px';
-        pauseControls.style.transformOrigin = 'top left';
-        pauseControls.style.transform = 'none';
+        pauseControls.style.width = '290px';
+        pauseControls.style.transformOrigin = 'top center';
+        pauseControls.style.transform = 'translateX(-50%)';
       }
 
       const skipBtn = document.getElementById('game-skip');
@@ -3515,7 +3520,7 @@ ctx.globalAlpha = 1.0;
 
       <div id="init-btn-wrap">
         <button id="init-btn" class="game-btn btn-BA" disabled>INITIALIZE</button>
-        <div id="init-hint">BUILD v346 © 2026 in8t10n Studio</div>
+        <div id="init-hint">BUILD v348 © 2026 in8t10n Studio</div>
       </div>
     </div>
   </div>
